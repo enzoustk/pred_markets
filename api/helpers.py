@@ -1,6 +1,6 @@
 import logging
 import requests
-from config import PARAMS
+from api.config import PARAMS
 from typing import List, Dict, Any, Tuple
 from requests.adapters import HTTPAdapter, Retry
 

@@ -6,7 +6,7 @@ import time
 import logging
 from typing import List, Dict, Any, Set, Tuple
 from api.config import PARAMS, URLS, ACTION_TYPES
-from helpers import safe_request, dedupe_key
+from api.helpers import safe_request, dedupe_key
 
 
 def fetch_activity_all_types(wallet: str) -> List[Dict[str, Any]]:

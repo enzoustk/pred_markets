@@ -28,6 +28,7 @@ def normalize(records: List[Dict[str, Any]]):
         df["datetime_utc"] = pd.to_datetime(df["createdAt"], utc=True, errors="coerce")
     
     df = df.sort_values("datetime_utc").reset_index(drop=True)
+    return df
 
 def export(data: pd.DataFrame, out_path: str):
     data.to_csv(out_path, index=False)

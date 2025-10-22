@@ -1,8 +1,8 @@
 import logging
 from api.config import PARAMS
 from typing import List, Dict, Any, Set, Tuple
-from activity import fetch_activity_all_types
-from trades import fetch_trades_for_wallet
+from api.fetch.activity import fetch_activity_all_types
+from api.fetch.trades import fetch_trades_for_wallet
 from api.helpers import dedupe_key
 
 def fetch_all_data(wallet: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
