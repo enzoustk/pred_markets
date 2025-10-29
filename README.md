@@ -11,7 +11,7 @@ Algum tipo de CopyTrade para partidas de Eventos Esportivos
 ---
 
 ## Opção 2:
-Algum tipo de Insider Founder para mercados  
+Algum tipo de Insider finder para mercados  
 - Escaneia todos os holders do mercado  
 - Analisa atividade suspeita:  
   - Mercado com pouca liquidez;  
