@@ -1,0 +1,241 @@
+import time
+import random
+import requests
+import pandas as pd
+from data.handle import assertion_active
+from api.config import URLS
+from typing import List, Dict, Any
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+def page(
+    url: str,
+    offset: int,
+    user_address: str,
+    limit: int = 500,
+    process_id: int = None,
+    retry_count: int = 0,
+    ) -> Dict[str, Any]:
+    
+    """
+    Busca uma página específica de dados;
+    Tratamento isolado de rate limit por processo;
+    """
+    
+    params = {
+        "limit": limit,
+        "offset": offset,
+        "user": user_address
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        
+        # se der certo
+        if response.status_code == 200:
+            data = response.json()
+            return {"offset": offset, "data": data, "success": True, "retry_count": retry_count}
+        
+        # se der too many requests
+        elif response.status_code == 429:
+            base_delay = 2  
+            max_delay = 60  
+            
+            exponential_delay = min(base_delay * (2 ** retry_count), max_delay)
+            # Adiciona jitter baseado no process_id para tornar único
+            jitter = random.uniform(0.1, 0.5) * (process_id or 1)
+            total_delay = exponential_delay + jitter
+            
+            process_info = f"Processo {process_id}" if process_id else "Desconhecido"
+            print(f"⚠️  {process_info}: Rate limit no offset {offset}, aguardando {total_delay:.2f}s (tentativa {retry_count + 1})...")
+            time.sleep(total_delay)
+            
+            return {"offset": offset, "data": [], "success": False, "error": "Rate limited", "retry_count": retry_count}
+        
+        else:
+            return {"offset": offset, "data": [], "success": False, "error": response.status_code, "retry_count": retry_count}
+    
+    except Exception as e:
+        print(f'Error Puxando página: {e}')
+        return {"offset": offset,"data": [],"success": False,"error": str(e),"retry_count": retry_count}
+
+def all_data_parallel(
+    url: str,
+    user_adress: str,
+    num_processes: int,
+    records_per_process: int = 250,
+    ):
+    
+    """
+    Busca todos os dados usando processos paralelos configuráveis
+    "Organizador" Principal, chama o range para cada processo
+    """
+    
+    # Setar os Ranges
+    ranges = []
+    for i in range(num_processes):
+        start_offset = i * records_per_process
+        end_offset = (i + 1) * records_per_process
+        process_id = i + 1
+        ranges.append((start_offset, end_offset, process_id))
+    
+    
+    start_time = time.time()
+    all_data = []
+    
+    with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        # Submete todas as tarefas
+        futures = []
+        for start_offset, end_offset, process_id in ranges:
+            future = executor.submit(
+                range, # função
+                url, #arg1
+                user_adress, #arg2
+                start_offset, #arg3
+                end_offset, #arg4
+                process_id #arg5
+                )
+            futures.append(future)
+        
+        # Coleta os resultados conforme vão chegando
+        for future in as_completed(futures):
+            try:
+                process_data = future.result()
+                all_data.extend(process_data)
+                print(f"Processo concluído: {len(process_data):,} registros coletados")
+            except Exception as e:
+                print(f"Erro em processo: {e}")
+    
+    end_time = time.time()
+    print(f"Tempo total de execução: {end_time - start_time:.2f} segundos")
+    print(f"Total de registros obtidos: {len(all_data):,}")
+    
+    return all_data
+
+def range(
+    url: str,
+    user_adress: str,
+    start_offset: int,
+    end_offset: int,
+    process_id: int,
+    num_processes: int,
+    max_limit: int = 500
+    ) -> List[Dict[str, Any]]:
+    """
+    Busca um range específico de offsets com tratamento isolado de rate limit
+    Chama o page várias vezes até coletar tudo o que precisa
+    TODO: Melhorar lógica de ultrapassagem de "range"
+    """
+    print(f"Processo {process_id}: Buscando offsets {start_offset:,} a {end_offset:,}")
+    
+    initial_delay = random.uniform(0.1, 0.5) * process_id
+    if initial_delay > 0: time.sleep(initial_delay) # Delay para jittering
+    
+    all_data = []
+    current_offset = start_offset
+    
+    base_delay = 0.3 + (process_id * 0.1) 
+    
+    while True:
+        if process_id < num_processes and current_offset >= end_offset:
+            print(f"🏁 Processo {process_id}: Limite atingido no offset {current_offset} (limite: {end_offset})")
+            break
+        
+        if process_id < num_processes:
+            # Limita a requisição para não ultrapassar o end_offset
+            max_offset_allowed = end_offset - current_offset
+            if max_offset_allowed <= 0:
+                break  # Já atingiu o limite
+            max_limit = min(max_limit, max_offset_allowed)
+        
+        # Contador de tentativas de retry para este offset específico
+        retry_count = 0
+        max_retries = 5  
+        
+        while retry_count < max_retries:
+            
+            result = page(
+                url=url,
+                user_address=user_adress,
+                offset=current_offset,
+                limit=max_limit,
+                process_id=process_id,
+                retry_count=retry_count
+                )
+            
+            if result["success"] and result["data"]:
+
+                all_data.extend(result["data"])                
+                current_offset += len(result["data"])
+                
+                if process_id < num_processes and current_offset > end_offset:
+                    # Para processos que não são o último, verifica se ultrapassou o limite após receber dados
+                    # (proteção extra caso a API retorne mais registros do que solicitado)
+                    excess = current_offset - end_offset
+                    if excess > 0:
+                        if excess <= len(all_data):
+                            all_data = all_data[:-excess]
+                            print(f"⚠️  Processo {process_id}: Removendo {excess} registros em excesso (ultrapassou limite {end_offset})")
+                        else:
+                            print(f"⚠️  Processo {process_id}: Erro - excesso ({excess}) maior que dados coletados ({len(all_data)})")
+                            all_data = []
+                        current_offset = end_offset
+                break  
+            
+            elif not result["success"]:
+                if result.get("error") == "Rate limited":
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        print(f"Processo {process_id}: Máximo de tentativas atingido após rate limit no offset {current_offset}")
+                        break
+                    
+                    continue
+                
+                else:
+                    print(f"Processo {process_id}: Erro no offset {current_offset}: {result.get('error')}")
+                    return all_data  # Retorna o que já coletou em caso de erro grave
+            
+            else:
+                # Dados vazios - chegamos ao fim
+                print(f"Processo {process_id}: Fim dos dados no offset {current_offset}")
+                return all_data
+        
+        # Se esgotou todas as tentativas sem sucesso, para este processo
+        if retry_count >= max_retries and not (result.get("success") and result.get("data")):
+            print(f"Processo {process_id}: Parando após esgotar tentativas no offset {current_offset}")
+            break
+        
+        # Verifica novamente o limite após processar (antes do delay)
+        if process_id < num_processes and current_offset >= end_offset:
+            break
+        
+        # Delay único por processo entre requisições (com jitter adicional)
+        # Adiciona variação aleatória para evitar sincronização
+        jitter = random.uniform(-0.1, 0.1)
+        delay = max(0.1, base_delay + jitter)
+        time.sleep(delay)
+    
+    print(f"Processo {process_id}: Concluído - {len(all_data):,} registros")
+    return all_data
+
+def user_data(
+    user_adress: str,
+    ):
+    """
+    Puxa toda as posições para o usuário em um dataframe.
+    """    
+    
+    # Passo 1: Dados de Posições Fechadas:
+    closed_data = pd.DataFrame(all_data_parallel(
+        user_adress=user_adress,
+        url=URLS['CLOSED_POSITIONS'],
+        num_processes=20
+        ))
+    
+    # Passo 2: Dados de posições Ativas:
+    active_data = pd.DataFrame(all_data_parallel(
+        user_adress=user_adress,
+        url=URLS['ACTIVE_POSITIONS'],
+        num_processes=1
+    ))
+    
+    combined_df = assertion_active(active_df=active_data, closed_df=closed_data)
