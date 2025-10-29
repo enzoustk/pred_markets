@@ -1,24 +1,21 @@
-# Software completo para PolyMarket
+# Roadmap
 
-## Opção 1:
-Algum tipo de CopyTrade para partidas de Eventos Esportivos  
-- Escaneia todos os Holders do mercado  
-- Estuda os movimentos anteriores para ver a "sharpness" do player -> PL, ROI, EV+ vs Pinnacle CLV no-vigged?  
-- Atribui um índice para cada player ponderado pela odd em que ele entrou  
-- Se houver discrepância para algum dos lados, entrar nele?  
-- Usar traders coletados como sharps para CopyTrade?  
+## v1:
+### Objetivo: Pipeline 100% Funcional para estudar users e adicionar à lista de CopyTrade
+Features
 
----
+- Estudar os movimentos anteriores para ver a "sharpness" de um player:
+    - PL, ROI
+    - EV+ vs Pinnacle CLV no-vigged
+    - EV+ vs Closing Line PolyMarket
+    - Separar dados por ligas (Para V1: NBA, MLB e NFL)
+    - Separar dados por Janelas Temporais
+    - Separar e entender Position Sizes
 
-## Opção 2:
-Algum tipo de Insider Founder para mercados  
-- Escaneia todos os holders do mercado  
-- Analisa atividade suspeita:  
-  - Mercado com pouca liquidez;  
-  - Mercado "insider-prone";  
-  - Usuário com conta criada recentemente apostando somente nesse market  
+- Funcionalidade CopyTrade
 
----
 
-## Opção 3:
-Algum tipo de algo trade para os mercados
+
+## v2:
+- Ler todos os holders de um mercado (Todos de Sports)
+- Analisar Sharpness para todos os Holders de um dado Mercado
