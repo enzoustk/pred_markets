@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 from api.config import URLS
 from typing import List, Dict, Any
-from data.handle import assertion_active, insert_tags
+from data.handle import assertion_active
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def page(
@@ -241,38 +241,27 @@ def user_data(
     
     # Retorna o dataframe com os dados 
     
-    return insert_tags(assertion_active(active_df=active_data, closed_df=closed_data))
+    return fetch_market_data(assertion_active(active_df=active_data, closed_df=closed_data))
 
-def fetch_tags(
+def fetch_market_data(
     df: pd.DataFrame,
-    batch_size: int = 100
-    )-> pd.DataFrame:
+    batch_size: int = 100,
+    ) -> pd.DataFrame:
     """
-    Procura tags para todos os mercados usados usando busca em lote otimizada
-    Processa em lotes para evitar erro 414 (URI muito longa)
+    Recebe um df e retorna o mesmo df com informações dos mercados:
+    1- Tags (ex: ['Games', 'Sports', 'NBA'])
+    2- gameStartTime: (ex: 2025-10-11 17:00:00+00)
+    3- Volume do Mercado: (ex: 936950.293165)
     """
-
-    # Verifica se a coluna 'slug' existe
-    if 'slug' not in df.columns:
-        print("Erro: Coluna 'slug' não encontrada no DataFrame")
-        return df
     
-    total_start = time.time()
-    print(f"Buscando tags para {len(df)} mercados usando busca em lote...")
-    
-    # Obter slugs únicos para evitar requisições duplicadas
     unique_slugs = df['slug'].unique()
-    print(f"Slugs únicos: {len(unique_slugs)}")
     
-    # Processar em lotes para evitar URI muito longa
-    all_tags_dict = {}
-    total_batches = (len(unique_slugs) + batch_size - 1) // batch_size
+    all_data_dict = {}
     
+    # de Fato puxar os dados
     for i in range(0, len(unique_slugs), batch_size):
-        batch_slugs = unique_slugs[i:i+batch_size]
-        batch_num = i // batch_size + 1
         
-        print(f"Processando lote {batch_num}/{total_batches} ({len(batch_slugs)} slugs)...")
+        batch_slugs = unique_slugs[i:i+batch_size]
         
         try:
             response = requests.get(
@@ -288,55 +277,64 @@ def fetch_tags(
             if response.status_code == 200:
                 markets = response.json()
                 
-                # Processar resultados do lote
-                batch_tags_dict = {}
+                # Processar Resultados do Lote
+                batch_dict = {}
+                
                 for market in markets:
                     slug = market.get('slug')
-                    if slug:
-                        tags = market.get('tags', [])
-                        labels = [tag.get('label', '') for tag in tags if tag.get('label')]
-                        batch_tags_dict[slug] = labels
-                
-                # Adicionar slugs não encontrados no lote
-                for slug in batch_slugs:
-                    if slug not in batch_tags_dict:
-                        batch_tags_dict[slug] = []
-                
-                all_tags_dict.update(batch_tags_dict)
-                print(f"  Lote {batch_num} concluído: {len([t for t in batch_tags_dict.values() if t])} mercados com tags")
-                
-            elif response.status_code == 414:
-                print(f"  Erro 414 no lote {batch_num}: URI muito longa, reduzindo tamanho do lote...")
-                # Tentar com lote menor
-                smaller_batch_size = len(batch_slugs) // 2
-                if smaller_batch_size > 0:
-                    print(f"  Tentando com {smaller_batch_size} slugs...")
-                    # Recursivamente processar com lote menor
-                    smaller_df = df[df['slug'].isin(batch_slugs)].copy()
-                    smaller_result = insert_tags(smaller_df, smaller_batch_size)
-                    for idx, row in smaller_result.iterrows():
-                        all_tags_dict[row['slug']] = row['tags']
-                else:
-                    print(f"  Pulando lote {batch_num} - slugs muito longos")
                     
+                    if not slug: continue
+                        
+                    # Inicializar o dicionário
+                    batch_dict[slug] = {}
+                    
+                    # Parte 1: Tags
+                    tags = market.get('tags', [])
+                    labels = [
+                        tag.get('label', '')
+                        for tag in tags 
+                        if tag.get('label')
+                        ]
+                    batch_dict[slug]['tags'] = labels
+                    
+                    # Parte 2: gameStartTime
+                    game_start_time = market.get('gameStartTime')
+                    batch_dict[slug]['start_time'] = game_start_time
+                    
+                    # Parte 3: Volume
+                    volume = market.get('volume')
+                    batch_dict[slug]['volume'] = volume
+                
+                # Lidar com dados faltantes...
+                for slug in batch_slugs:
+                    if slug not in batch_dict:
+                        batch_dict[slug] = {
+                            'tags': [],
+                            'start_time': None,
+                            'volume': None
+                        }
+                
+                all_data_dict.update(batch_dict)
+                
             else:
-                print(f"  Erro na API no lote {batch_num}: Status {response.status_code}")
+                print(f"  Erro na API no lote {i}: Status {response.status_code}")
                 # Adicionar slugs do lote com tags vazias
                 for slug in batch_slugs:
-                    all_tags_dict[slug] = []
-        
+                    all_data_dict[slug] = {'tags': [],'start_time': None,'volume': None}
+                        
         except Exception as e:
-            print(f"  Erro no lote {batch_num}: {e}")
+            print(f"  Erro no lote {i}: {e}")
             # Adicionar slugs do lote com tags vazias
             for slug in batch_slugs:
-                all_tags_dict[slug] = []
-    
-    # Mapear tags de volta para o DataFrame
-    df['tags'] = df['slug'].map(all_tags_dict)
-    
-    total_elapsed = time.time() - total_start
-    print(f"\nProcessamento concluído em {total_elapsed:.2f} segundos")
-    print(f"Tempo médio por mercado: {total_elapsed/len(df):.3f} segundos")
-    print(f"Tags encontradas para {len([t for t in df['tags'] if t])} mercados")
-    
-    return df
+                all_data_dict[slug] = {'tags': [],'start_time': None,'volume': None}
+        
+        # Agora, com all_data_dict_pronto, vamos colocar no df       
+        market_data_df = pd.DataFrame.from_dict(all_data_dict, orient='index')
+        combined_df = df.merge(
+            market_data_df,
+            left_on='slug',
+            right_index=True,
+            how='left'
+        )
+        
+        return combined_df
