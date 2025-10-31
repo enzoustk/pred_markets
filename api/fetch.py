@@ -2,9 +2,9 @@ import time
 import random
 import requests
 import pandas as pd
-from data.handle import assertion_active
 from api.config import URLS
 from typing import List, Dict, Any
+from data.handle import assertion_active, insert_tags
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def page(
@@ -60,14 +60,14 @@ def page(
 
 def all_data_parallel(
     url: str,
-    user_adress: str,
+    user_address: str,
     num_processes: int,
     records_per_process: int = 250,
     ):
     
     """
     Busca todos os dados usando processos paralelos configuráveis
-    "Organizador" Principal, chama o range para cada processo
+    "Organizador" Principal, chama o fetch_range para cada processo
     """
     
     # Setar os Ranges
@@ -87,12 +87,13 @@ def all_data_parallel(
         futures = []
         for start_offset, end_offset, process_id in ranges:
             future = executor.submit(
-                range, # função
+                fetch_range, # função
                 url, #arg1
-                user_adress, #arg2
+                user_address, #arg2
                 start_offset, #arg3
                 end_offset, #arg4
-                process_id #arg5
+                process_id, #arg5
+                num_processes
                 )
             futures.append(future)
         
@@ -111,9 +112,9 @@ def all_data_parallel(
     
     return all_data
 
-def range(
+def fetch_range(
     url: str,
-    user_adress: str,
+    user_address: str,
     start_offset: int,
     end_offset: int,
     process_id: int,
@@ -121,9 +122,9 @@ def range(
     max_limit: int = 500
     ) -> List[Dict[str, Any]]:
     """
-    Busca um range específico de offsets com tratamento isolado de rate limit
+    Busca um fetch_range específico de offsets com tratamento isolado de rate limit
     Chama o page várias vezes até coletar tudo o que precisa
-    TODO: Melhorar lógica de ultrapassagem de "range"
+    TODO: Melhorar lógica de ultrapassagem de "fetch_range"
     """
     print(f"Processo {process_id}: Buscando offsets {start_offset:,} a {end_offset:,}")
     
@@ -155,7 +156,7 @@ def range(
             
             result = page(
                 url=url,
-                user_address=user_adress,
+                user_address=user_address,
                 offset=current_offset,
                 limit=max_limit,
                 process_id=process_id,
@@ -218,7 +219,7 @@ def range(
     return all_data
 
 def user_data(
-    user_adress: str,
+    user_address: str,
     ):
     """
     Puxa toda as posições para o usuário em um dataframe.
@@ -226,16 +227,19 @@ def user_data(
     
     # Passo 1: Dados de Posições Fechadas:
     closed_data = pd.DataFrame(all_data_parallel(
-        user_adress=user_adress,
+        user_address=user_address,
         url=URLS['CLOSED_POSITIONS'],
         num_processes=20
         ))
     
     # Passo 2: Dados de posições Ativas:
     active_data = pd.DataFrame(all_data_parallel(
-        user_adress=user_adress,
+        user_address=user_address,
         url=URLS['ACTIVE_POSITIONS'],
         num_processes=1
     ))
     
-    combined_df = assertion_active(active_df=active_data, closed_df=closed_data)
+    # Retorna o dataframe com os dados 
+    
+    return insert_tags(assertion_active(active_df=active_data, closed_df=closed_data))
+   
