@@ -328,13 +328,13 @@ def fetch_market_data(
             for slug in batch_slugs:
                 all_data_dict[slug] = {'tags': [],'start_time': None,'volume': None}
         
-        # Agora, com all_data_dict_pronto, vamos colocar no df       
-        market_data_df = pd.DataFrame.from_dict(all_data_dict, orient='index')
-        combined_df = df.merge(
-            market_data_df,
-            left_on='slug',
-            right_index=True,
-            how='left'
-        )
-        
-        return combined_df
+    # Agora, com all_data_dict_pronto, vamos colocar no df       
+    market_data_df = pd.DataFrame.from_dict(all_data_dict, orient='index')
+    combined_df = df.merge(
+        market_data_df,
+        left_on='slug',
+        right_index=True,
+        how='left'
+    )
+    
+    return combined_df
