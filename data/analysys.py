@@ -1,5 +1,5 @@
-import ast
 import pandas as pd
+from helpers import safe_divide, to_list
 
 class DataAnalyst:
     @staticmethod
@@ -29,17 +29,6 @@ class DataAnalyst:
         """
         Recebe um dataframe e retorna a análise do user por "tag"
         """
-        # Método auxiliar para lidar com listas
-        def to_list(x):
-            if isinstance(x, list):
-                return x
-            if isinstance(x, str):
-                try:
-                    v = ast.literal_eval(x)
-                    return v if isinstance(v, list) else []
-                except:
-                    return []
-            return []
         
         df = df.copy()
         
@@ -123,3 +112,120 @@ class DataAnalyst:
             all_data.append(single_date)
         
         return pd.DataFrame(all_data)
+
+    @staticmethod
+    def calculate_clv(df: pd.DataFrame):
+        """
+        Recebe um dataframe e calcula o CLV para cada uma das apostas presentes nele.
+        Retorna um DataFrame com estatísticas de CLV (predf) e o DataFrame modificado com colunas CLV (df).
+        """
+        # No dataframe, temos a hora de cada partida, basta ver a transação/preço do item na hora do tip-off.
+        # Problema 1: Se o jogador comprou depois? 
+        # Problema 2: Se o jogador vendeu antes/cashout?
+        # Problema 3: Como puxar o snapshot de um evento já terminado?
+        
+        # Solução 1 e 2: 
+        # https://docs.polymarket.com/api-reference/core/get-trades-for-a-user-or-markets?playground=open
+        # Filtrar somente transações feitas antes do evento começar.
+        
+        
+        # Receber o DF Positions com: match_start_price
+        # Passo 1: Filtrar do DF de Trades somente as trades que ocorreram antes do evento.
+            # 1.1 Para elas, calcular o preço médio.
+        # Passo 2: Calcular o CLV
+        
+        # Forma inteligente: 
+            # 1- Percorrer o trades_df agrupado para cada ConditionID diferente;
+                # Coletar seu match_start_price,
+                # Remover trades pós-start
+                # Calcular o CLV
+                
+        # Nesse momento, trades_df é um csv, TODO: Colocar o método de extração
+        df = df.copy()
+        
+        clv_results = {}
+        clv_reasons = {}
+        
+        # Criar índice composto para lookup: conditionId + asset
+        
+        def create_key(df: pd.DataFrame) -> pd.Series:
+            # Cria uma chave composta e retorna apenas a nova coluna (Series).
+            return df['conditionId'].astype(str) + '_' + df['asset'].astype(str)
+        
+        df['_composite_key'] = create_key(df=df)
+        df_lookup = df.set_index(['conditionId', 'asset']).sort_index()
+        
+        df['start_time_unix'] = pd.to_datetime(
+            df['start_time'], format='ISO8601', utc=True
+            ).astype('int64') // 10**9
+        
+        
+        # TODO: Lógica para puxar todos os trades vem aqui
+        trades_df = pd.read_csv('trades_data_final.csv')
+        trades_df['_composite_key'] = create_key(df=trades_df)
+        
+        # Criar conjunto de tuplas do df para busca rápida
+        df_keys_set = set(zip(df['conditionId'], df['asset']))
+        
+        # Entrar no loop e calcular o CLV para todas as apostas
+        for (condition_id, asset), group_df in trades_df.groupby(['conditionId', 'asset']):
+            composite_key = f"{condition_id}_{asset}"
+            
+            try:
+                # Verificar se o conditionId + asset existe no df
+                if (condition_id, asset) not in df_keys_set:
+                    continue
+                    
+                # Definir dados a comparar, Se houver múltiplas linhas, pegar a primeira
+                lookup_row = df_lookup.loc[(condition_id, asset)]
+                
+                if isinstance(lookup_row, pd.DataFrame):
+                    lookup_row = lookup_row.iloc[0]
+                
+                start_time = lookup_row['start_time_unix']
+                closing_price = lookup_row['match_start_price']
+                                
+                # Agora, temos o filtered_df com trades de antes do Tip-Off
+                filtered_df = group_df[group_df['timestamp'] < start_time].copy()
+                                                
+                # Calcular agora o preço médio.
+                avg_price = (
+                    (filtered_df['size'] * filtered_df['price']).sum() 
+                    / filtered_df['size'].sum()
+                    )
+                
+                # Calcular CLV
+                price_clv = closing_price - avg_price
+                
+                # Evitar divisão por zero
+                odds_clv = safe_divide(
+                    safe_divide(1,avg_price),
+                    safe_divide(1,closing_price)
+                )
+
+                
+                clv_results[composite_key] = {
+                    'price_clv': price_clv,
+                    'odds_clv': odds_clv,
+                    'avg_price': avg_price,
+                    'closing_price': closing_price
+                }
+                
+            except Exception as e:
+                clv_reasons[composite_key] = f'erro_processamento: {str(e)[:50]}'
+                                
+        price_clv_map = {key: val['price_clv'] for key, val in clv_results.items()}
+        odds_clv_map = {key: val['odds_clv'] for key, val in clv_results.items()}
+
+        # Mapear usando a chave composta (conditionId + asset)
+        df['price_clv'] = df['_composite_key'].map(price_clv_map)
+        df['odds_clv'] = df['_composite_key'].map(odds_clv_map)
+                
+        # Remover colunas auxiliares
+        df = df.drop(
+            columns=['start_time_unix', '_composite_key'], errors='ignore'
+            )
+        
+        # A partir daqui, temos um df 100% funcional com CLV do user.
+       
+        return df
