@@ -6,13 +6,12 @@ Features
 
 - Estudar os movimentos anteriores para ver a "sharpness" de um player:
     - PL, ROI
-    - EV+ vs Pinnacle CLV no-vigged
-    - EV+ vs Closing Line PolyMarket
-    - Separar dados por ligas (Para V1: NBA, MLB e NFL)
+    - EV+ vs CLV Polymarket & Pinnacle no-vigged
+    - Separar dados por ligas/Esportes
     - Separar dados por Janelas Temporais
     - Separar e entender Position Sizes
 
-- Funcionalidade CopyTrade
+- CopyTrade 100% Funcional
 
 
 
