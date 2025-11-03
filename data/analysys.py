@@ -1,5 +1,6 @@
 import pandas as pd
 from helpers import safe_divide, to_list
+from api import fetch_clv
 
 class DataAnalyst:
     @staticmethod
@@ -19,6 +20,25 @@ class DataAnalyst:
         total_roi = total_profit / total_volume
         
         return total_profit, total_volume, total_roi
+    
+    @staticmethod
+    def in_depth_tag_analysys(df: pd.DataFrame):
+        """
+        Pipeline Completo de Análise para um user.
+        TODO: Estudo de Variância de Stake
+        """
+        df = df.copy()
+        df['staked'] = df['totalBought'] * df['avgPrice']
+        
+        # Lucro Total, Vol e ROI. (Tupled)
+        totals = DataAnalyst.calculate_stats(df=df)
+        avg_stake = df['staked'].mean()
+        
+        # Aqui começa a análise detalhada de Stakes
+        max_stake = df['staked'].max()
+        min_stake = df['staked'].min()
+        flat_profit = totals[2] * len(df) # ROI vs Apostas
+              
     
     @staticmethod
     def tag_analysys(
@@ -114,7 +134,10 @@ class DataAnalyst:
         return pd.DataFrame(all_data)
 
     @staticmethod
-    def calculate_clv(df: pd.DataFrame):
+    def calculate_clv(
+        user_address: str,
+        df: pd.DataFrame
+        ):
         """
         Recebe um dataframe e calcula o CLV para cada uma das apostas presentes nele.
         Retorna um DataFrame com estatísticas de CLV (predf) e o DataFrame modificado com colunas CLV (df).
@@ -140,7 +163,7 @@ class DataAnalyst:
                 # Remover trades pós-start
                 # Calcular o CLV
                 
-        # Nesse momento, trades_df é um csv, TODO: Colocar o método de extração
+        # Nesse momento, trades_df é um csv
         df = df.copy()
         
         clv_results = {}
@@ -161,7 +184,10 @@ class DataAnalyst:
         
         
         # TODO: Lógica para puxar todos os trades vem aqui
-        trades_df = pd.read_csv('trades_data_final.csv')
+        trades_df = fetch_clv.fetch_clv(
+            user_address=user_address,
+            df=df
+            )
         trades_df['_composite_key'] = create_key(df=trades_df)
         
         # Criar conjunto de tuplas do df para busca rápida
