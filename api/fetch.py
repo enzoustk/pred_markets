@@ -98,11 +98,13 @@ def all_data_parallel(
             futures.append(future)
         
         # Coleta os resultados conforme vão chegando
+        processos_concluidos = 0
         for future in as_completed(futures):
             try:
                 process_data = future.result()
                 all_data.extend(process_data)
-                print(f"Processo concluído: {len(process_data):,} registros coletados")
+                processos_concluidos += 1
+                print(f"✓ Processo concluído ({processos_concluidos}/{num_processes}): {len(process_data):,} registros coletados | Total geral: {len(all_data):,} registros")
             except Exception as e:
                 print(f"Erro em processo: {e}")
     
@@ -165,8 +167,12 @@ def fetch_range(
             
             if result["success"] and result["data"]:
 
+                registros_coletados = len(result["data"])
                 all_data.extend(result["data"])                
                 current_offset += len(result["data"])
+                
+                # Print de progresso durante a coleta
+                print(f"✓ Processo {process_id}: Coletados {registros_coletados:,} registros (offset {result['offset']:,} → {current_offset:,}) | Total acumulado: {len(all_data):,} registros")
                 
                 if process_id < num_processes and current_offset > end_offset:
                     # Para processos que não são o último, verifica se ultrapassou o limite após receber dados
@@ -259,9 +265,14 @@ def fetch_market_data(
     all_data_dict = {}
     
     # de Fato puxar os dados
+    total_batches = (len(unique_slugs) + batch_size - 1) // batch_size
+    
     for i in range(0, len(unique_slugs), batch_size):
         
         batch_slugs = unique_slugs[i:i+batch_size]
+        batch_num = (i // batch_size) + 1
+        
+        print(f"📊 Buscando dados de mercado: lote {batch_num}/{total_batches} ({len(batch_slugs)} slugs)")
         
         try:
             response = requests.get(
@@ -276,6 +287,7 @@ def fetch_market_data(
             
             if response.status_code == 200:
                 markets = response.json()
+                print(f"✓ Lote {batch_num}/{total_batches}: {len(markets)} mercados obtidos com sucesso")
                 
                 # Processar Resultados do Lote
                 batch_dict = {}
