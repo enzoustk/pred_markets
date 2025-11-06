@@ -10,15 +10,20 @@ import time
 
 # Adiciona o diretório raiz (um nível acima) ao path
 
-
 try:
     from data.analysys import DataAnalyst
     from helpers import to_list, safe_divide  # <--- Importa o safe_divide CORRETO
-    from dashboard import graficos
+    # Imports diretos dos módulos refatorados
+    from dashboard.pages.main_page import criar_pagina_principal
+    from dashboard.pages.tags_pages import (
+        criar_pagina_tags_resumo,
+        criar_pagina_detalhe_tag,
+        criar_pagina_apostas_tag
+    )
 except ImportError as e:
     print(f"Erro: Não foi possível importar os módulos. Verifique sua estrutura de arquivos.")
     print(f"Detalhe: {e}")
-    print("Certifique-se que 'analise.py' e 'helpers.py' estão na pasta raiz.")
+    print("Certifique-se que os módulos estão corretos.")
     sys.exit(1)
 
 # --- Funções Auxiliares de Dados ---
@@ -38,7 +43,8 @@ def get_exploded_df(df: pd.DataFrame, exclude_tags: list = []) -> pd.DataFrame:
     exploded = exploded[exploded['tag'].notna()]
     exploded = exploded[~exploded['tag'].isin(removed_tags)]
     
-    exploded['total_profit'] = exploded['realizedPnl'].fillna(0) + exploded['cashPnl'].fillna(0)
+    # CORREÇÃO: Usar apenas realizedPnl para evitar duplicação
+    exploded['total_profit'] = exploded['realizedPnl'].fillna(0)
     exploded['volume'] = exploded['totalBought'] * exploded['avgPrice']
     exploded['staked'] = exploded['totalBought'] * exploded['avgPrice']
     
@@ -161,11 +167,12 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
     df_main = df.copy()
     df_main['staked'] = df_main['totalBought'] * df_main['avgPrice']
     
-    total_profit, total_volume, total_roi = DataAnalyst.calculate_stats(df_main)
+    total_profit, total_volume, total_roi = DataAnalyst.return_stats(df_main)
     
     # Calcular flat profit individualmente para cada aposta e depois somar
+    # CORREÇÃO: Usar apenas realizedPnl para evitar duplicação
     if 'total_profit' not in df_main.columns:
-        df_main['total_profit'] = df_main['realizedPnl'].fillna(0) + df_main['cashPnl'].fillna(0)
+        df_main['total_profit'] = df_main['realizedPnl'].fillna(0)
     if 'staked' not in df_main.columns:
         df_main['staked'] = df_main['totalBought'] * df_main['avgPrice']
     df_main['roi_individual'] = safe_divide(df_main['total_profit'], df_main['staked'])
@@ -192,7 +199,7 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
     df_yearly['year'] = pd.to_datetime(df_yearly['endDate'], format='ISO8601', utc=True).dt.tz_localize(None).dt.to_period('Y')
     yearly_data = []
     for year, year_df in df_yearly.groupby('year'):
-        profit, vol, roi = DataAnalyst.calculate_stats(year_df)
+        profit, vol, roi = DataAnalyst.return_stats(year_df)
         yearly_data.append({
             'date': year,
             'profit': profit,
@@ -208,7 +215,7 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
     
     # --- GERAR DASHBOARD PRINCIPAL (index.html) ---
     print("Gerando index.html (Página Principal)...")
-    html_main = graficos.criar_pagina_principal(
+    html_main = criar_pagina_principal(
         stats=stats_gerais,
         df_daily=df_daily,
         df_tags=df_tags,
@@ -224,7 +231,7 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
     # --- GERAR PÁGINA DE TAGS (tags.html) ---
     print(f"Gerando tags.html (Resumo de {len(df_tags)} tags)...")
     if not df_tags.empty:
-        html_completo, _ = graficos.criar_pagina_tags_resumo(df_tags)
+        html_completo, _ = criar_pagina_tags_resumo(df_tags)
         tags_path = os.path.join(OUTPUT_DIR, 'tags.html')
         
         with open(tags_path, 'w', encoding='utf-8') as f:
@@ -249,7 +256,7 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
             df_daily_tag['date'] = df_daily_tag['date'].astype(str) 
             
             # Criar página de detalhe
-            html_detalhe = graficos.criar_pagina_detalhe_tag(df_tag_especifica, tag_name, df_daily_tag)
+            html_detalhe = criar_pagina_detalhe_tag(df_tag_especifica, tag_name, df_daily_tag)
             
             safe_filename = "".join(c if c.isalnum() else "_" for c in tag_name) + ".html"
             detail_path = os.path.join(TAGS_DIR, safe_filename)
@@ -259,7 +266,7 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
             count += 1
             
             # Criar página de apostas com todas as colunas
-            apostas_html = graficos.criar_pagina_apostas_tag(df_tag_especifica, tag_name)
+            apostas_html = criar_pagina_apostas_tag(df_tag_especifica, tag_name)
             apostas_filename = safe_filename.replace(".html", "_apostas.html")
             apostas_path = os.path.join(TAGS_DIR, apostas_filename)
             

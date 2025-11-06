@@ -1,0 +1,291 @@
+/* Tags Resumo Page Styles */
+
+/* Table Styles */
+.tag-table-wrapper {
+    margin: 80px auto; 
+    max-width: 95%; 
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.tag-table-wrapper h3 {
+    color: #FFFFFF; 
+    font-size: 24px; 
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.tag-table-container {
+    background-color: rgba(28, 28, 30, 0.6);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 400px);
+}
+
+.tag-table-container::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.tag-table-container::-webkit-scrollbar-track {
+    background: #000000;
+    border-radius: 6px;
+}
+
+.tag-table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+}
+
+.tag-table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Tag Table Styles */
+.tag-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    color: #FFFFFF;
+    background-color: transparent;
+}
+
+.tag-table thead {
+    background-color: #000000;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.tag-table th {
+    padding: 12px 15px;
+    text-align: left;
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 12px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+    background-color: #000000;
+}
+
+.tag-table th.text-right {
+    text-align: right;
+}
+
+.tag-table th:last-child {
+    border-right: none;
+}
+
+.tag-table tbody tr {
+    background-color: transparent;
+    color: #FFFFFF;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tag-table tbody tr:nth-child(even) {
+    background-color: rgba(142, 142, 147, 0.05);
+}
+
+.tag-table tbody tr:hover {
+    background-color: rgba(10, 132, 255, 0.1);
+}
+
+.tag-table td {
+    padding: 10px 15px;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+    white-space: nowrap;
+}
+
+.tag-table td.text-right {
+    text-align: right;
+}
+
+.tag-table td:last-child {
+    border-right: none;
+}
+
+.tag-table .profit {
+    color: #34C759 !important;
+    font-weight: 500;
+}
+
+.tag-table .loss {
+    color: #FF3B30 !important;
+    font-weight: 500;
+}
+
+.tag-table .neutral {
+    color: #FFFFFF;
+}
+
+.tag-table a {
+    color: #0A84FF;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.tag-table a:hover {
+    text-decoration: underline;
+}
+
+.tag-table .sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.tag-table .sortable:hover {
+    background-color: rgba(142, 142, 147, 0.1);
+}
+
+.tag-table .sort-arrow {
+    margin-left: 5px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Page Layout */
+body {
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+    color: #FFFFFF;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.page-header h1 {
+    font-size: 34px;
+    font-weight: 600;
+    color: #FFFFFF;
+    margin-bottom: 10px;
+}
+
+.page-header a {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.page-header a:hover {
+    color: #0A84FF;
+}
+
+.tags-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    max-width: 1800px;
+    margin: 0 auto;
+}
+
+.left-panel {
+    background-color: rgba(28, 28, 30, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.right-panel {
+    background-color: rgba(28, 28, 30, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-controls {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    flex-wrap: wrap;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chart-controls label {
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.chart-controls select {
+    padding: 8px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    min-width: 150px;
+    transition: all 0.2s ease;
+}
+
+.chart-controls select:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.chart-controls select:focus {
+    outline: none;
+    border-color: #0A84FF;
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1);
+}
+
+#tags-chart {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+#chart-container {
+    background: transparent;
+}
+
+.js-plotly-plot {
+    background: transparent !important;
+}
+
+.js-plotly-plot .plotly {
+    background: transparent !important;
+}
+
+/* Tentativa de arredondar cantos das barras usando SVG */
+.js-plotly-plot .trace.bars path {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Animação para transição de gráficos */
+#chart-container .plotly {
+    transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+}
+
+#chart-container .plotly.animating {
+    transform: scale(0.98);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .tags-layout {
+        grid-template-columns: 1fr;
+    }
+}
+

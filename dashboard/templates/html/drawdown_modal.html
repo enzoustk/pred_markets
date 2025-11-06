@@ -1,0 +1,31 @@
+<div id="{{modal_id}}" class="drawdown-modal">
+    <div class="drawdown-modal-content">
+        <div class="drawdown-modal-header">
+            <h2>Drawdown Analysis</h2>
+            <button onclick="{{close_function}}()" class="drawdown-modal-close">&times;</button>
+        </div>
+        <div id="{{modal_id}}-content">
+            {{drawdown_table_html}}
+        </div>
+    </div>
+</div>
+<script>
+    function {{open_function}}() {
+        document.getElementById('{{modal_id}}').style.display = 'block';
+    }
+    function {{close_function}}() {
+        document.getElementById('{{modal_id}}').style.display = 'none';
+    }
+    // Fechar modal ao clicar fora
+    (function() {
+        const modal = document.getElementById('{{modal_id}}');
+        if (modal) {
+            modal.addEventListener('click', function(event) {
+                if (event.target == modal) {
+                    {{close_function}}();
+                }
+            });
+        }
+    })();
+</script>
+
