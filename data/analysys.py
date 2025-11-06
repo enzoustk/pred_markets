@@ -11,15 +11,28 @@ class DataAnalyst:
         """
         df = df.copy()
         
-        df['total_profit'] = df['realizedPnl'].fillna(0) + df['cashPnl'].fillna(0)
+        # Calcular total_profit: usar cashPnl se existir, senão apenas realizedPnl
+        df['total_profit'] = df['realizedPnl'].fillna(0)
+        if 'cashPnl' in df.columns:
+            df['total_profit'] += df['cashPnl'].fillna(0)
+        
         df['volume'] = df['totalBought'] * df['avgPrice']
-        df['roi'] = df['total_profit'] / df['volume']
+        df['roi'] = safe_divide(df['total_profit'], df['volume'])
 
         total_profit = df['total_profit'].sum()
         total_volume = df['volume'].sum()
-        total_roi = total_profit / total_volume
+        total_roi = safe_divide(total_profit, total_volume) or 0
         
         return total_profit, total_volume, total_roi
+    
+    @staticmethod
+    def return_stats(df: pd.DataFrame):
+        """
+        Alias para calculate_stats para compatibilidade com o dashboard.
+        Recebe um dataframe, calcula e retorna:
+        Profit, Vol e ROI
+        """
+        return DataAnalyst.calculate_stats(df)
     
     @staticmethod
     def in_depth_tag_analysys(df: pd.DataFrame):
@@ -51,6 +64,11 @@ class DataAnalyst:
         """
         
         df = df.copy()
+        
+        # Verificar se a coluna 'tags' existe
+        if 'tags' not in df.columns:
+            print("⚠️  Aviso: Coluna 'tags' não encontrada no DataFrame. Retornando DataFrame vazio.")
+            return pd.DataFrame(columns=['tag', 'profit', 'volume', 'roi', 'bets'])
         
         removed_tags = ['Games', 'Sports'] + exclude_tags
         
