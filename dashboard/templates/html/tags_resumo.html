@@ -22,6 +22,10 @@
                 </table>
             </div>
         </div>
+        <script>
+            // Definir dados da tabela antes de inicializar o script de ordenação
+            const tagsPageData = {{tags_json}};
+        </script>
         {{sortable_table_js}}
     </div>
     <div class="right-panel">
@@ -49,8 +53,7 @@
     </div>
 </div>
 <script>
-    // Definir dados da tabela antes de inicializar
-    const tagsPageData = {{tags_json}};
+    // Dados do gráfico e outras constantes
     const chartData = {{chart_json}};
     const FONT_FAMILY_VALUE = {{FONT_FAMILY_JSON}};
     const COLOR_TEXT_SECONDARY_VALUE = '{{COLOR_TEXT_SECONDARY}}';

@@ -7,6 +7,7 @@ import json
 import random
 from dashboard.constants import *
 from dashboard.utils import safe_divide
+from helpers import to_list
 from dashboard.utils.formatters import format_currency, format_percentage, get_profit_loss_class
 from dashboard.utils.data_preparation import (
     prepare_df_columns,
@@ -86,6 +87,81 @@ def _criar_tabela_kpi_html(stats: dict, drawdown_data: dict = None, drawdown_tab
         )
         
         html += modal_css + modal_html
+    
+    return html
+
+def _criar_tabela_metricas_principais_html(stats: dict, drawdown_data: dict = None) -> str:
+    """
+    Cria a seção de métricas principais (duas linhas).
+    Primeira linha: Total Profit, ROI, Staked (Volume)
+    Segunda linha: Flat Profit, Stake Médio, Stake Mediano, Drawdown Máximo
+    """
+    # Formatar valores
+    total_profit = stats.get('total_profit', 0)
+    total_roi = stats.get('total_roi', 0)
+    total_volume = stats.get('total_volume', 0)
+    flat_profit = stats.get('flat_profit', 0)
+    mean_stake = stats.get('mean_stake', 0)
+    median_stake = stats.get('median_stake', 0)
+    
+    # Determinar classes de cor
+    profit_class_1 = get_profit_loss_class(total_profit)
+    profit_class_2 = get_profit_loss_class(flat_profit)
+    roi_class = get_profit_loss_class(total_roi)
+    
+    # Drawdown máximo
+    max_drawdown = 0
+    drawdown_class = 'neutral'
+    if drawdown_data is not None:
+        max_drawdown = drawdown_data.get('max_drawdown_profit', 0)
+        if max_drawdown < 0:
+            drawdown_class = 'loss'
+    
+    # Formatar valores
+    total_profit_formatted = format_currency(total_profit)
+    total_roi_formatted = format_percentage(total_roi)
+    total_volume_formatted = format_currency(total_volume)
+    flat_profit_formatted = format_currency(flat_profit)
+    mean_stake_formatted = format_currency(mean_stake)
+    median_stake_formatted = format_currency(median_stake)
+    max_drawdown_formatted = format_currency(max_drawdown)
+    
+    html = f'''
+    <div class="metrics-main-section">
+        <div class="metrics-row metrics-row-1">
+            <div class="metric-card">
+                <div class="metric-label">Total Profit</div>
+                <div class="metric-value {profit_class_1}">{total_profit_formatted}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">ROI</div>
+                <div class="metric-value {roi_class}">{total_roi_formatted}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Staked (Volume)</div>
+                <div class="metric-value neutral">{total_volume_formatted}</div>
+            </div>
+        </div>
+        <div class="metrics-row metrics-row-2">
+            <div class="metric-card">
+                <div class="metric-label">Flat Profit</div>
+                <div class="metric-value {profit_class_2}">{flat_profit_formatted}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Stake Médio</div>
+                <div class="metric-value neutral">{mean_stake_formatted}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Stake Mediano</div>
+                <div class="metric-value neutral">{median_stake_formatted}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Drawdown Máximo</div>
+                <div class="metric-value {drawdown_class}">{max_drawdown_formatted}</div>
+            </div>
+        </div>
+    </div>
+    '''
     
     return html
 
@@ -537,4 +613,96 @@ def _criar_tabela_drawdown_html(df_daily: pd.DataFrame, df_main: pd.DataFrame = 
     )
     
     return html
+
+def _criar_tabela_todas_apostas_html(df_main: pd.DataFrame) -> str:
+    """
+    Cria tabela HTML com todas as apostas do usuário, ordenável.
+    """
+    if df_main.empty:
+        return '<table class="dashboard-table sortable-table" id="all-bets-table"><thead><tr><th>Data</th><th>Tag</th><th class="text-right">Stake</th><th class="text-right">Profit</th><th class="text-right">ROI</th></tr></thead><tbody></tbody></table>'
+    
+    # Preparar dados
+    headers = ['Data', 'Tag', 'Stake', 'Profit', 'ROI']
+    rows = []
+    
+    for _, row in df_main.iterrows():
+        # Data
+        date_str = ''
+        if 'start_time' in row and pd.notna(row['start_time']):
+            try:
+                date = pd.to_datetime(row['start_time'])
+                date_str = date.strftime('%Y-%m-%d')
+            except:
+                date_str = str(row['start_time'])[:10] if len(str(row['start_time'])) >= 10 else ''
+        
+        # Tag (primeira tag da lista)
+        tag_str = ''
+        if 'tags' in row and pd.notna(row['tags']):
+            tags_list = to_list(row['tags'])
+            if tags_list:
+                tag_str = tags_list[0] if isinstance(tags_list, list) and len(tags_list) > 0 else str(tags_list)
+        
+        # Stake
+        stake = 0
+        if 'staked' in row:
+            stake = row['staked']
+        elif 'totalBought' in row and 'avgPrice' in row:
+            stake = row['totalBought'] * row['avgPrice']
+        
+        # Profit
+        profit = 0
+        if 'total_profit' in row:
+            profit = row['total_profit']
+        elif 'realizedPnl' in row:
+            profit = row['realizedPnl']
+        
+        # ROI
+        roi = safe_divide(profit, stake) if stake != 0 else 0
+        
+        rows.append([
+            date_str,
+            tag_str,
+            stake,
+            profit,
+            roi
+        ])
+    
+    # Formatters
+    column_formatters = [
+        None,  # Data - string
+        None,  # Tag - string
+        format_currency,  # Stake
+        format_currency,  # Profit
+        format_percentage  # ROI
+    ]
+    
+    # Profit/Loss columns
+    profit_loss_columns = [3, 4]  # Profit e ROI
+    
+    # Alinhamentos
+    column_alignments = ['left', 'left', 'right', 'right', 'right']
+    
+    # Criar tabela
+    table_html = create_html_table(
+        headers=headers,
+        rows=rows,
+        column_formatters=column_formatters,
+        profit_loss_columns=profit_loss_columns,
+        column_alignments=column_alignments,
+        table_class="dashboard-table sortable-table",
+        sortable=True,
+        table_id="all-bets-table",
+        body_id="all-bets-table-body"
+    )
+    
+    # Adicionar JavaScript para ordenação da tabela
+    sortable_js = get_sortable_table_js(
+        data_variable=None,  # Não precisa de dados JSON, já está no HTML
+        table_id='all-bets-table',
+        body_id='all-bets-table-body',
+        initial_sort={'column': 0, 'direction': 'desc'},  # Ordenar por data descendente
+        render_row_callback=None  # Usar renderização padrão do HTML
+    )
+    
+    return table_html + sortable_js
 

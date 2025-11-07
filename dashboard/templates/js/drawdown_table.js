@@ -35,7 +35,7 @@ function renderDrawdownTable(drawdownData) {
     
     html += `<tr>
         <td><strong>Drawdown Máximo (Profit)</strong></td>
-        <td class="text-right loss">$${formatCurrency(drawdownData.max_drawdown_profit)}</td>
+        <td class="text-right loss">${formatCurrency(drawdownData.max_drawdown_profit)}</td>
         <td>${periodDays} dias</td>
         <td>${startDate}</td>
         <td>${endDate}</td>
@@ -44,7 +44,7 @@ function renderDrawdownTable(drawdownData) {
     // Drawdown Máximo em Flat Profit
     html += `<tr>
         <td><strong>Drawdown Máximo (Flat Profit)</strong></td>
-        <td class="text-right loss">$${formatCurrency(drawdownData.max_drawdown_flat_profit)}</td>
+        <td class="text-right loss">${formatCurrency(drawdownData.max_drawdown_flat_profit)}</td>
         <td>${periodDays} dias</td>
         <td>${startDate}</td>
         <td>${endDate}</td>
@@ -53,7 +53,7 @@ function renderDrawdownTable(drawdownData) {
     // Drawdown Mediano em $
     html += `<tr>
         <td><strong>Drawdown Mediano (Profit)</strong></td>
-        <td class="text-right loss">$${formatCurrency(drawdownData.median_drawdown_profit)}</td>
+        <td class="text-right loss">${formatCurrency(drawdownData.median_drawdown_profit)}</td>
         <td>-</td>
         <td>-</td>
         <td>-</td>
@@ -62,7 +62,7 @@ function renderDrawdownTable(drawdownData) {
     // Drawdown Mediano em Flat Profit
     html += `<tr>
         <td><strong>Drawdown Mediano (Flat Profit)</strong></td>
-        <td class="text-right loss">$${formatCurrency(drawdownData.median_drawdown_flat_profit)}</td>
+        <td class="text-right loss">${formatCurrency(drawdownData.median_drawdown_flat_profit)}</td>
         <td>-</td>
         <td>-</td>
         <td>-</td>

@@ -387,3 +387,5 @@ if (document.readyState === 'loading') {
     initializeChartControls();
 }
 
+
+

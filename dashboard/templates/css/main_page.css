@@ -28,6 +28,94 @@ body {
     text-align: center;
 }
 
+/* Métricas Principais - Primeiras Informações */
+.metrics-main-container {
+    margin-bottom: 40px;
+}
+
+.metrics-main-section {
+    background: rgba(28, 28, 30, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.metrics-row {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.metrics-row:last-child {
+    margin-bottom: 0;
+}
+
+.metrics-row-1 {
+    justify-content: space-between;
+}
+
+.metrics-row-2 {
+    justify-content: flex-start;
+}
+
+.metric-card {
+    flex: 1;
+    min-width: 200px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px 24px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.metric-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #FFFFFF;
+    line-height: 1.2;
+}
+
+.metric-value.profit {
+    color: #34C759;
+}
+
+.metric-value.loss {
+    color: #FF3B30;
+}
+
+.metric-value.neutral {
+    color: #FFFFFF;
+}
+
+/* Seção de Todas as Apostas */
+.all-bets-section {
+    margin-top: 40px;
+}
+
+.all-bets-section .dashboard-table-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
 h1 {
     font-size: 48px;
     font-weight: 700;
@@ -282,5 +370,19 @@ h1 {
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
+    
+    .metrics-row {
+        flex-direction: column;
+    }
+    
+    .metric-card {
+        min-width: 100%;
+    }
+    
+    .metrics-row-1,
+    .metrics-row-2 {
+        justify-content: stretch;
+    }
 }
+
 

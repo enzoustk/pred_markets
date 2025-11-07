@@ -17,11 +17,11 @@ from dashboard.charts.plotly_helpers import (
 )
 from dashboard.tables.html_tables import (
     _criar_tabela_kpi_html,
-    _criar_tabela_top_tags_html,
     _criar_tabela_diaria_html,
     _criar_tabela_decis_html,
     _criar_tabela_drawdown_html,
-    _calcular_drawdown
+    _calcular_drawdown,
+    _criar_tabela_metricas_principais_html
 )
 from dashboard.tables.plotly_tables import (
     _criar_tabela_kpi,
@@ -89,8 +89,8 @@ def criar_pagina_principal(stats: dict, df_daily: pd.DataFrame, df_tags: pd.Data
         chart_data_json=chart_data_json,
         all_data_json=all_data_json,
         cumulative_chart_js=cumulative_chart_js,
+        metrics_main_html=_criar_tabela_metricas_principais_html(stats, drawdown_data),
         metrics_table_html=_criar_tabela_kpi_html(stats, drawdown_data, drawdown_table_html),
-        all_tags_table_html=_criar_tabela_top_tags_html(df_tags),
         stake_distribution_table_html=_criar_tabela_decis_html(df_main),
         daily_summary_table_html=_criar_tabela_diaria_html(df_daily, df_main, df_monthly, df_yearly)
     )

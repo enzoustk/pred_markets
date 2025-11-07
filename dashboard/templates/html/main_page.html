@@ -10,6 +10,11 @@
         </a>
     </div>
     
+    <!-- Primeiras Informações: Métricas Principais -->
+    <div class="metrics-main-container">
+        {{metrics_main_html}}
+    </div>
+    
     <div class="chart-section">
         <div class="chart-controls">
             <label for="cumulative-period">Filtrar por período:</label>
@@ -50,12 +55,6 @@
                     <h4>Metrics</h4>
                     <div class="dashboard-table-container">
                         {{metrics_table_html}}
-                    </div>
-                </div>
-                <div class="table-subsection">
-                    <h4>All Tags</h4>
-                    <div class="dashboard-table-container">
-                        {{all_tags_table_html}}
                     </div>
                 </div>
                 <div class="table-subsection">

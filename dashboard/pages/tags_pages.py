@@ -197,7 +197,7 @@ def criar_pagina_tags_resumo(tag_df: pd.DataFrame) -> Tuple[str, str]:
     
     return page_html, ''  # Retorna HTML completo e string vazia (não precisa mais do fig_tags separado)
 
-def criar_pagina_detalhe_tag(df_tag: pd.DataFrame, tag_name: str, df_daily: pd.DataFrame):
+def criar_pagina_detalhe_tag(df_tag: pd.DataFrame, tag_name: str, df_daily: pd.DataFrame, user_address: str = None):
     """
     Cria a página de detalhe de uma tag com tabelas HTML nativas e gráfico Plotly.
     Retorna HTML completo.
@@ -244,6 +244,12 @@ def criar_pagina_detalhe_tag(df_tag: pd.DataFrame, tag_name: str, df_daily: pd.D
         area_color=area_color
     )
     
+    # Ajustar altura do gráfico para se ajustar ao container
+    fig_bar.update_layout(
+        height=None,  # Remove altura fixa para se ajustar ao container
+        autosize=True  # Permite que o gráfico se ajuste automaticamente
+    )
+    
     bar_chart_html = fig_bar.to_html(full_html=False, include_plotlyjs='cdn', div_id='daily-chart')
     
     # Preparar todos os dados originais para cálculo de intervalo personalizado
@@ -263,23 +269,39 @@ def criar_pagina_detalhe_tag(df_tag: pd.DataFrame, tag_name: str, df_daily: pd.D
     safe_filename = "".join(c if c.isalnum() else "_" for c in tag_name)
     apostas_filename = f"{safe_filename}_apostas.html"
     
+    # Preparar dados do dataframe para CLV (converter para JSON)
+    # Passar todas as colunas do dataframe para o cálculo de CLV
+    df_tag_for_clv = df_tag.copy()
+    # Converter para JSON, mantendo todas as colunas necessárias para o cálculo
+    df_tag_for_clv_json = df_tag_for_clv.to_json(orient='records', date_format='iso')
+    
     # CSS e estilos reutilizáveis
     table_css = get_all_styles()
     chart_animation_css = get_chart_update_animation_css().replace('.chart-container', '#daily-chart-container')
     chart_js = load_template('tag_detalhe', 'js')
+    clv_analysis_js = load_template('clv_analysis', 'js')
+    
+    # Importar função para métricas principais
+    from dashboard.tables.html_tables import (
+        _criar_tabela_metricas_principais_html
+    )
     
     # Preparar conteúdo HTML usando template
     content = load_html('tag_detalhe',
         tag_name=tag_name,
         apostas_filename=apostas_filename,
+        metrics_main_html=_criar_tabela_metricas_principais_html(stats, drawdown_data),
         metrics_table_html=_criar_tabela_kpi_html(stats, drawdown_data, drawdown_table_html),
         chart_html=bar_chart_html,
         chart_data_json=chart_data_json,
         all_data_json=all_data_json,
         chart_animation_css=chart_animation_css,
         chart_js=chart_js,
+        clv_analysis_js=clv_analysis_js,
         daily_summary_table_html=_criar_tabela_diaria_html(df_daily, df_main=df_tag),
-        stake_distribution_table_html=_criar_tabela_decis_html(df_tag)
+        stake_distribution_table_html=_criar_tabela_decis_html(df_tag),
+        user_address=user_address or '',
+        df_tag_json=df_tag_for_clv_json
     )
     
     # Criar página HTML completa usando templates

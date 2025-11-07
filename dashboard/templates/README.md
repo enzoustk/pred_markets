@@ -60,3 +60,5 @@ Para migrar uma página existente:
 3. Extrair HTML para `templates/html/nome_pagina.html`
 4. Atualizar função Python para usar `load_html()` e `create_page_html()`
 
+
+

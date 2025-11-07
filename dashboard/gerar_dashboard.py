@@ -11,7 +11,7 @@ import time
 # Adiciona o diretório raiz (um nível acima) ao path
 
 try:
-    from data.analysys import DataAnalyst
+    from data.analysis import DataAnalyst
     from helpers import to_list, safe_divide  # <--- Importa o safe_divide CORRETO
     # Imports diretos dos módulos refatorados
     from dashboard.pages.main_page import criar_pagina_principal
@@ -31,7 +31,7 @@ except ImportError as e:
 def get_exploded_df(df: pd.DataFrame, exclude_tags: list = []) -> pd.DataFrame:
     """
     Cria DataFrame exploded com tags para análise detalhada.
-    Usa a lógica de 'tag_analysys' para duplicar a funcionalidade.
+    Usa a lógica de 'tag_analysis' para duplicar a funcionalidade.
     """
     df = df.copy()
     removed_tags = ['Games', 'Sports'] + exclude_tags
@@ -142,12 +142,13 @@ def _start_temp_server(directory, port=8000):
     finally:
         os.chdir(original_dir)
 
-def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: bool = True):
+def criar_dashboard(df: pd.DataFrame, user_address: str = None, min_bets_per_tag: int = 50, auto_open: bool = True):
     """
     Cria um dashboard interativo a partir de um DataFrame.
     
     Args:
         df: DataFrame com os dados para análise
+        user_address: Endereço do usuário para cálculos de CLV
         min_bets_per_tag: Número mínimo de apostas por tag para incluir na análise
         auto_open: Se True, abre automaticamente no navegador e inicia servidor localhost
     
@@ -209,7 +210,7 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
     df_yearly = pd.DataFrame(yearly_data)
     df_yearly['date'] = df_yearly['date'].astype(str)
     
-    df_tags = DataAnalyst.tag_analysys(df_main, min_bets=min_bets_per_tag)
+    df_tags = DataAnalyst.tag_analysis(df_main, min_bets=min_bets_per_tag)
     exploded_df = get_exploded_df(df_main)
     print("Análise concluída.")
     
@@ -244,19 +245,24 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
     print(f"Gerando {len(df_tags)} páginas de detalhe de tags...")
     count = 0
     apostas_count = 0
+    total_tags = len(df_tags)
     if not df_tags.empty:
-        for _, row in df_tags.iterrows():
+        for idx, (_, row) in enumerate(df_tags.iterrows(), 1):
             tag_name = row['tag']
+            print(f"  [{idx}/{total_tags}] Processando tag: {tag_name}...", end=' ', flush=True)
+            
             df_tag_especifica = exploded_df[exploded_df['tag'] == tag_name]
             
             if df_tag_especifica.empty:
+                print("(pulada - vazia)")
                 continue
-                
+            
+            # Calcular daily balance (operação pesada)
             df_daily_tag = DataAnalyst.daily_balance(df_tag_especifica)
             df_daily_tag['date'] = df_daily_tag['date'].astype(str) 
             
-            # Criar página de detalhe
-            html_detalhe = criar_pagina_detalhe_tag(df_tag_especifica, tag_name, df_daily_tag)
+            # Criar página de detalhe (gera gráfico Plotly - operação pesada)
+            html_detalhe = criar_pagina_detalhe_tag(df_tag_especifica, tag_name, df_daily_tag, user_address=user_address)
             
             safe_filename = "".join(c if c.isalnum() else "_" for c in tag_name) + ".html"
             detail_path = os.path.join(TAGS_DIR, safe_filename)
@@ -264,8 +270,9 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
             with open(detail_path, 'w', encoding='utf-8') as f:
                 f.write(html_detalhe)
             count += 1
+            print("✓ detalhe", end=' ', flush=True)
             
-            # Criar página de apostas com todas as colunas
+            # Criar página de apostas com todas as colunas (processamento pesado)
             apostas_html = criar_pagina_apostas_tag(df_tag_especifica, tag_name)
             apostas_filename = safe_filename.replace(".html", "_apostas.html")
             apostas_path = os.path.join(TAGS_DIR, apostas_filename)
@@ -273,6 +280,7 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
             with open(apostas_path, 'w', encoding='utf-8') as f:
                 f.write(apostas_html)
             apostas_count += 1
+            print("✓ apostas")
     print(f"✅ {count} Páginas de detalhe salvas em: {TAGS_DIR}")
     print(f"✅ {apostas_count} Páginas de apostas salvas em: {TAGS_DIR}")
     
@@ -285,44 +293,177 @@ def criar_dashboard(df: pd.DataFrame, min_bets_per_tag: int = 50, auto_open: boo
         'tags_dir': TAGS_DIR
     }
     
-    # Se auto_open, iniciar servidor e abrir navegador
+    # Se auto_open, iniciar servidor Flask e abrir navegador
+    flask_thread = None  # Definir no escopo externo para poder verificar depois
+    
     if auto_open:
         print("\n" + "="*70)
-        print("🚀 Dashboard pronto! Iniciando servidor...")
+        print("🚀 Dashboard pronto! Iniciando servidor Flask...")
         print("="*70)
         
-        port_to_use = 8000
-        
-        def start_server():
-            global _port
-            try:
-                _start_temp_server(OUTPUT_DIR, port_to_use)
-            except Exception as e:
-                print(f"❌ Erro ao iniciar servidor: {e}")
-        
-        server_thread = threading.Thread(target=start_server, daemon=True)
-        server_thread.start()
-        
-        # Aguardar servidor iniciar
-        time.sleep(1.5)
-        
-        # Usar a porta que foi atribuída
-        port = _port if _port else port_to_use
-        url = f'http://localhost:{port}/index.html'
-        result['url'] = url
-        result['port'] = port
-        
-        # Abrir no navegador
-        webbrowser.open(url)
-        print(f"🌐 Dashboard aberto no navegador!")
-        print(f"   URL: {url}")
-        print(f"   Pressione Ctrl+C para fechar o servidor")
-        print("="*70)
-        
-        # Manter o script rodando
+        # Tentar usar Flask se disponível, senão usar servidor HTTP simples
         try:
+            from flask import Flask
+            from dashboard.server import app
+            
+            # Variável para rastrear se o servidor iniciou
+            server_started = threading.Event()
+            server_error = [None]  # Usar lista para permitir modificação dentro da thread
+            
+            def start_flask_server():
+                # Desabilitar reloader para evitar problemas em thread
+                try:
+                    print("   [Thread] Iniciando servidor Flask na porta 5000...")
+                    server_started.set()  # Sinalizar que estamos tentando iniciar
+                    app.run(debug=False, port=5000, use_reloader=False, threaded=True, host='127.0.0.1')
+                except OSError as e:
+                    if "Address already in use" in str(e) or "address is already in use" in str(e).lower():
+                        server_error[0] = "Porta 5000 já está em uso. Feche outros processos ou use outra porta."
+                        print(f"❌ {server_error[0]}")
+                    else:
+                        server_error[0] = f"Erro ao iniciar servidor Flask: {e}"
+                        print(f"❌ {server_error[0]}")
+                except Exception as e:
+                    server_error[0] = f"Erro ao iniciar servidor Flask: {e}"
+                    print(f"❌ {server_error[0]}")
+            
+            flask_thread = threading.Thread(target=start_flask_server, daemon=False, name="FlaskServer")
+            flask_thread.start()
+            
+            # Aguardar um pouco para o servidor começar a inicializar
+            time.sleep(1)
+            
+            # Aguardar servidor iniciar e verificar se está respondendo
+            print("⏳ Aguardando servidor Flask iniciar...")
+            max_wait = 15  # máximo de 15 segundos
+            wait_time = 0
+            server_ready = False
+            
+            # Tentar usar requests se disponível, senão usar urllib
+            try:
+                import requests
+                def check_health():
+                    try:
+                        response = requests.get('http://127.0.0.1:5000/', timeout=2)
+                        return response.status_code == 200
+                    except requests.exceptions.RequestException:
+                        return False
+            except ImportError:
+                import urllib.request
+                import socket
+                def check_health():
+                    try:
+                        socket.setdefaulttimeout(2)
+                        response = urllib.request.urlopen('http://127.0.0.1:5000/', timeout=2)
+                        return response.getcode() == 200
+                    except:
+                        return False
+            
+            # Verificar periodicamente se o servidor está respondendo
+            while wait_time < max_wait:
+                time.sleep(0.5)
+                wait_time += 0.5
+                try:
+                    if check_health():
+                        server_ready = True
+                        print(f"✅ Servidor Flask está respondendo! (aguardou {wait_time:.1f}s)")
+                        break
+                except (Exception, ConnectionError, OSError) as e:
+                    if wait_time % 2 == 0:  # A cada 2 segundos, mostrar progresso
+                        print(f"   Aguardando servidor... ({wait_time:.1f}s)")
+            
+            if not server_ready:
+                if server_error[0]:
+                    print(f"❌ {server_error[0]}")
+                else:
+                    print("⚠️  Servidor Flask não respondeu após 15 segundos.")
+                    print("   Verifique se há algum erro acima ou se a porta 5000 está em uso.")
+                    print("   Você pode tentar iniciar o servidor manualmente com: python -m dashboard.server")
+                print("   Tentando continuar mesmo assim...")
+            else:
+                print("✅ Servidor Flask está rodando e pronto para receber requisições!")
+            
+            url = 'http://localhost:5000/index.html'
+            result['url'] = url
+            result['port'] = 5000
+            
+            # Abrir no navegador
+            webbrowser.open(url)
+            print(f"🌐 Dashboard aberto no navegador!")
+            print(f"   URL: {url}")
+            print(f"   Servidor Flask rodando na porta 5000")
+            print(f"   API CLV disponível em: http://localhost:5000/api/calculate_clv")
+            print(f"   Pressione Ctrl+C para fechar o servidor")
+            print("="*70)
+            
+        except ImportError:
+            # Fallback para servidor HTTP simples se Flask não estiver disponível
+            print("⚠️  Flask não disponível, usando servidor HTTP simples")
+            print("   Nota: A funcionalidade de CLV requer Flask. Instale com: pip install flask flask-cors")
+            
+            port_to_use = 8000
+            
+            def start_server():
+                global _port
+                try:
+                    _start_temp_server(OUTPUT_DIR, port_to_use)
+                except Exception as e:
+                    print(f"❌ Erro ao iniciar servidor: {e}")
+            
+            server_thread = threading.Thread(target=start_server, daemon=True)
+            server_thread.start()
+            
+            # Aguardar servidor iniciar
+            time.sleep(1.5)
+            
+            # Usar a porta que foi atribuída
+            port = _port if _port else port_to_use
+            url = f'http://localhost:{port}/index.html'
+            result['url'] = url
+            result['port'] = port
+            
+            # Abrir no navegador
+            webbrowser.open(url)
+            print(f"🌐 Dashboard aberto no navegador!")
+            print(f"   URL: {url}")
+            print(f"   Pressione Ctrl+C para fechar o servidor")
+            print("="*70)
+        
+        # Manter o script rodando e verificar periodicamente se o servidor Flask ainda está ativo
+        try:
+            check_interval = 30  # Verificar a cada 30 segundos
+            last_check = time.time()
+            
+            # Função para verificar se o servidor ainda está respondendo (apenas para Flask)
+            def check_server_alive():
+                try:
+                    import requests
+                    try:
+                        response = requests.get('http://127.0.0.1:5000/', timeout=2)
+                        return response.status_code == 200
+                    except:
+                        return False
+                except ImportError:
+                    # Se requests não estiver disponível, assumir que está OK
+                    return True
+            
             while True:
                 time.sleep(1)
+                
+                # Verificar periodicamente se o servidor Flask ainda está rodando
+                current_time = time.time()
+                if current_time - last_check >= check_interval:
+                    last_check = current_time
+                    if flask_thread is not None and flask_thread.is_alive():
+                        if not check_server_alive():
+                            print("⚠️  AVISO: Servidor Flask pode ter parado de responder!")
+                            print("   Tente recarregar a página ou reiniciar o servidor.")
+                    elif flask_thread is not None:
+                        print("❌ ERRO: Thread do servidor Flask foi encerrada!")
+                        print("   O servidor não está mais disponível.")
+                        print("   Por favor, reinicie o script.")
+                        break
+                        
         except KeyboardInterrupt:
             print("\n\n🛑 Encerrando servidor...")
             global _httpd
