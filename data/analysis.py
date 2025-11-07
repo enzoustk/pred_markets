@@ -1,6 +1,6 @@
 import pandas as pd
 from helpers import safe_divide, to_list
-from api import fetch_clv
+# Import lazy de fetch_clv - só será importado quando calculate_clv for chamado
 
 class DataAnalyst:
     @staticmethod
@@ -35,7 +35,7 @@ class DataAnalyst:
         return DataAnalyst.calculate_stats(df)
     
     @staticmethod
-    def in_depth_tag_analysys(df: pd.DataFrame):
+    def in_depth_tag_analysis(df: pd.DataFrame):
         """
         Pipeline Completo de Análise para um user.
         TODO: Estudo de Variância de Stake
@@ -54,7 +54,7 @@ class DataAnalyst:
               
     
     @staticmethod
-    def tag_analysys(
+    def tag_analysis(
         df: pd.DataFrame,
         min_bets: int = 50,
         exclude_tags: list = []
@@ -153,8 +153,9 @@ class DataAnalyst:
 
     @staticmethod
     def calculate_clv(
+        pull_data: bool,
         user_address: str,
-        df: pd.DataFrame
+        df: pd.DataFrame,
         ):
         """
         Recebe um dataframe e calcula o CLV para cada uma das apostas presentes nele.
@@ -202,10 +203,13 @@ class DataAnalyst:
         
         
         # TODO: Lógica para puxar todos os trades vem aqui
+        # Import lazy para evitar carregar o módulo pesado na inicialização
+        from api import fetch_clv
         trades_df = fetch_clv.fetch_clv(
             user_address=user_address,
             df=df
-            )
+        )
+        
         trades_df['_composite_key'] = create_key(df=trades_df)
         
         # Criar conjunto de tuplas do df para busca rápida
