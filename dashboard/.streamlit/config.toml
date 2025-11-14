@@ -1,0 +1,6 @@
+[theme]
+base="dark"
+primaryColor="#00FF00"       # Cor dos botões e sliders
+backgroundColor="#0E1117"    # Cor de fundo principal
+secondaryBackgroundColor="#262730" # Cor do fundo da barra lateral
+textColor="#FAFAFA"          # Cor do texto
