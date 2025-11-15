@@ -1,0 +1,12 @@
+
+app.py: Lógica para usar o dataframe puxado via main.py
+
+data_helpers.filter_and_fomart:
+    ROI
+    Tipar numericamente para filtrar corretamente
+
+dashboard.ui.elements.daily_profit:
+    Botões de Filtro por data
+
+dashboard.ui.elements.closed_positions:
+    Colorir coluna Profit

@@ -63,7 +63,6 @@ def cum_profit(df: pd.DataFrame) -> None:
 
     
 def daily_profit(df: pd.DataFrame) -> None:
-    # TODO: Botões de Filtro por data
     daily_profit_data = dh.create_daily_summary(df)
     st.subheader('Daily Profit')
     st.dataframe(
@@ -75,7 +74,6 @@ def daily_profit(df: pd.DataFrame) -> None:
 
 def closed_positions(df: pd.DataFrame) -> None:
     
-    # TODO: Colorir coluna Profit
     st.subheader('Closed Positions:')
     formated_df = dh.filter_and_format(df=df)
     
