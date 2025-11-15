@@ -7,8 +7,6 @@ from data.analysis import DataAnalyst
 
 
 def filter_and_format(df: pd.DataFrame) -> pd.DataFrame:
-    # TODO: ROI
-    # TODO: Tipar numericamente para filtrar corretamente
     
     # 1. Filtrar apenas as colunas usadas
     new_df = df[[
