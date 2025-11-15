@@ -1,8 +1,23 @@
 import pandas as pd
 from helpers import safe_divide, to_list
+from unreviewed_code.test_price_history import process_dataframe
 # Import lazy de fetch_clv - só será importado quando calculate_clv for chamado
 
 class DataAnalyst:
+    @staticmethod
+    def calculate_advanced_stats(df:pd.DataFrame):
+        df = df.copy()
+        stats = {}
+        
+        df['staked'] = df['totalBought'] * df['avgPrice']
+        df['roi'] = safe_divide(df['realizedPnl'], df['staked'])
+        
+        stats['flat_profit'] = df['roi'].sum()
+        stats['avg_stake'] = df['staked'].mean()
+        stats['median_stake'] = df['staked'].median() 
+        
+        return stats
+    
     @staticmethod
     def calculate_stats(df: pd.DataFrame):
         """
@@ -51,13 +66,12 @@ class DataAnalyst:
         max_stake = df['staked'].max()
         min_stake = df['staked'].min()
         flat_profit = totals[2] * len(df) # ROI vs Apostas
-              
-    
+ 
     @staticmethod
     def tag_analysis(
         df: pd.DataFrame,
         min_bets: int = 50,
-        exclude_tags: list = []
+        exclude_tags: list = [],
         ):
         """
         Recebe um dataframe e retorna a análise do user por "tag"
@@ -89,16 +103,55 @@ class DataAnalyst:
         for tag in valid_tags:
             tag_df = exploded[exploded['tag'] == tag]
             profit, vol, roi = DataAnalyst.calculate_stats(tag_df)
+            adv_stats = DataAnalyst.calculate_advanced_stats(tag_df)
             tag_data = {
                 'tag': tag,
                 'profit': profit,
                 'volume': vol,
                 'roi': roi,
+                'units': adv_stats['flat_profit'],
                 'bets': int(bets_per_tag.get(tag, 0))
             }
             result.append(tag_data)
-        
+       
         return pd.DataFrame(result).sort_values(by='roi', ascending=False)
+
+    @staticmethod
+    def print_tag_report(
+        tag_df: pd.DataFrame
+    ) -> None:
+        """
+        Printa os dados para o user ver a análise de Tags
+        """
+        
+        # Verifica se o DataFrame está vazio
+        if tag_df.empty:
+            print("Nenhuma tag encontrada para exibir no relatório.")
+            return
+            
+        print("\n--- Relatório de Análise por Tag (Ordenado por ROI) ---")
+        
+        # Define o formato do cabeçalho
+        header = f"{'Tag':<20} | {'ROI':>8} | {'Profit':>10} | {'Volume':>12} | {'Bets':>6}"
+        print(header)
+        print("-" * len(header))
+        
+        # Itera sobre as linhas do DataFrame para printar cada tag
+        for index, row in tag_df.iterrows():
+            
+            # Formata as strings para um print alinhado
+            tag_str = f"{str(row['tag']):<20}"
+            roi_str = f"{row['roi']:>8.2%}"  # Formata como porcentagem
+            profit_str = f"{row['profit']:>10.2f}"
+            volume_str = f"{row['volume']:>12.2f}"
+            bets_str = f"{row['bets']:>6}"
+            
+            # Monta a linha de output
+            line = f"{tag_str} | {roi_str} | {profit_str} | {volume_str} | {bets_str}"
+            print(line)
+            
+        print("-" * len(header))
+        print("--- Fim do Relatório ---")
 
     @staticmethod
     def daily_balance(df: pd.DataFrame):
@@ -153,127 +206,187 @@ class DataAnalyst:
 
     @staticmethod
     def calculate_clv(
-        pull_data: bool,
         user_address: str,
         df: pd.DataFrame,
-        ):
-        """
-        Recebe um dataframe e calcula o CLV para cada uma das apostas presentes nele.
-        Retorna um DataFrame com estatísticas de CLV (predf) e o DataFrame modificado com colunas CLV (df).
-        """
-        # No dataframe, temos a hora de cada partida, basta ver a transação/preço do item na hora do tip-off.
-        # Problema 1: Se o jogador comprou depois? 
-        # Problema 2: Se o jogador vendeu antes/cashout?
-        # Problema 3: Como puxar o snapshot de um evento já terminado?
+    ):
         
-        # Solução 1 e 2: 
-        # https://docs.polymarket.com/api-reference/core/get-trades-for-a-user-or-markets?playground=open
-        # Filtrar somente transações feitas antes do evento começar.
+        print("--- INICIANDO calculate_clv ---")
         
-        
-        # Receber o DF Positions com: match_start_price
-        # Passo 1: Filtrar do DF de Trades somente as trades que ocorreram antes do evento.
-            # 1.1 Para elas, calcular o preço médio.
-        # Passo 2: Calcular o CLV
-        
-        # Forma inteligente: 
-            # 1- Percorrer o trades_df agrupado para cada ConditionID diferente;
-                # Coletar seu match_start_price,
-                # Remover trades pós-start
-                # Calcular o CLV
-                
-        # Nesse momento, trades_df é um csv
         df = df.copy()
+        
+        # Colocar o df na forma correta
+        clv_df = process_dataframe(df)
         
         clv_results = {}
         clv_reasons = {}
         
-        # Criar índice composto para lookup: conditionId + asset
-        
         def create_key(df: pd.DataFrame) -> pd.Series:
-            # Cria uma chave composta e retorna apenas a nova coluna (Series).
             return df['conditionId'].astype(str) + '_' + df['asset'].astype(str)
         
-        df['_composite_key'] = create_key(df=df)
-        df_lookup = df.set_index(['conditionId', 'asset']).sort_index()
+        clv_df['_composite_key'] = create_key(df=clv_df)
         
-        df['start_time_unix'] = pd.to_datetime(
-            df['start_time'], format='ISO8601', utc=True
+        try:
+            clv_df['start_time_unix'] = pd.to_datetime(
+                clv_df['start_time'], format='ISO8601', utc=True
             ).astype('int64') // 10**9
+            print(f"DataFrame principal (df) preparado. {len(df)} linhas.")
+            print(f"Exemplo start_time_unix: {clv_df['start_time_unix'].iloc[0]}")
         
+        except Exception as e:
+            print(f"Erro CRÍTICO ao converter 'start_time' no df principal: {e}")
+            return clv_df # Retorna o df original se falhar aqui
+
+        df_lookup = clv_df.set_index(['conditionId', 'asset']).sort_index()
         
-        # TODO: Lógica para puxar todos os trades vem aqui
-        # Import lazy para evitar carregar o módulo pesado na inicialização
         from api import fetch_clv
+        print("Buscando trades da API (fetch_clv)...")
         trades_df = fetch_clv.fetch_clv(
             user_address=user_address,
             df=df
         )
         
-        trades_df['_composite_key'] = create_key(df=trades_df)
+        trades_df.to_csv('trades_df.csv')
         
-        # Criar conjunto de tuplas do df para busca rápida
-        df_keys_set = set(zip(df['conditionId'], df['asset']))
+        if trades_df.empty:
+            print("❌ ERRO: fetch_clv retornou um DataFrame VAZIO. Nenhum trade para processar.")
+            print("--- FINALIZANDO calculate_clv (sem dados) ---")
+            clv_df = clv_df.drop(columns=['start_time_unix', '_composite_key'], errors='ignore')
+            return clv_df
+            
+        print(f"✅ Trades recebidos. Shape do trades_df: {trades_df.shape}")
+
+        try:
+            # *** DEBUG: Vamos inspecionar o timestamp ANTES de converter ***
+            raw_timestamp_example = trades_df['timestamp'].iloc[0]
+            print(f"Exemplo de 'timestamp' RAW da API: {raw_timestamp_example} (Tipo: {type(raw_timestamp_example)})")
+            
+            trades_df['timestamp_seconds'] = trades_df['timestamp'].astype(float) // 1000
+            
+            print(f"Exemplo de 'timestamp_seconds' CONVERTIDO: {trades_df['timestamp_seconds'].iloc[0]}")
+            
+        except KeyError:
+            print("❌ ERRO: A coluna 'timestamp' não foi encontrada no trades_df.")
+            clv_df = clv_df.drop(columns=['start_time_unix', '_composite_key'], errors='ignore')
+            return clv_df
+        
+        except Exception as e:
+            print(f"❌ ERRO ao converter timestamp do trades_df: {e}")
+            clv_df = clv_df.drop(columns=['start_time_unix', '_composite_key'], errors='ignore')
+            return clv_df
+
+        trades_df['_composite_key'] = create_key(df=trades_df)
+        df_keys_set = set(zip(clv_df['conditionId'], clv_df['asset']))
+        
+        print(f"--- Iniciando loop por {len(trades_df.groupby(['conditionId', 'asset']))} grupos de trades ---")
         
         # Entrar no loop e calcular o CLV para todas as apostas
         for (condition_id, asset), group_df in trades_df.groupby(['conditionId', 'asset']):
-            composite_key = f"{condition_id}_{asset}"
-            
+            composite_key =  f"{condition_id}_{asset}"
+                       
             try:
-                # Verificar se o conditionId + asset existe no df
                 if (condition_id, asset) not in df_keys_set:
+                    print("  -> SKIP: Chave não encontrada no df principal.")
                     continue
                     
-                # Definir dados a comparar, Se houver múltiplas linhas, pegar a primeira
                 lookup_row = df_lookup.loc[(condition_id, asset)]
                 
                 if isinstance(lookup_row, pd.DataFrame):
                     lookup_row = lookup_row.iloc[0]
                 
+                # *** DEBUG: Inspecionar os valores de lookup ***
                 start_time = lookup_row['start_time_unix']
                 closing_price = lookup_row['match_start_price']
+                
+                # *** DEBUG: Checar se o closing_price é NaN ***
+                if pd.isna(closing_price):
+                    print("  -> ERRO: 'match_start_price' (Closing Price) é NaN. Pulando.")
+                    clv_reasons[composite_key] = 'closing_price_is_nan'
+                    continue
                                 
-                # Agora, temos o filtered_df com trades de antes do Tip-Off
-                filtered_df = group_df[group_df['timestamp'] < start_time].copy()
-                                                
+                # Usar a coluna 'timestamp_seconds' para o filtro
+                filtered_df = group_df[group_df['timestamp_seconds'] < start_time].copy()
+                                
+                total_size = filtered_df['size'].sum()
+                
+                if total_size == 0:
+                    print("  -> SKIP: Nenhum trade encontrado antes do start_time (Total Size = 0).")
+                    clv_reasons[composite_key] = 'sem_trades_pre_market'
+                    continue 
+
                 # Calcular agora o preço médio.
                 avg_price = (
                     (filtered_df['size'] * filtered_df['price']).sum() 
-                    / filtered_df['size'].sum()
+                    / total_size
                     )
                 
-                # Calcular CLV
                 price_clv = closing_price - avg_price
-                
-                # Evitar divisão por zero
+
                 odds_clv = safe_divide(
                     safe_divide(1,avg_price),
                     safe_divide(1,closing_price)
                 )
-
                 
                 clv_results[composite_key] = {
-                    'price_clv': price_clv,
-                    'odds_clv': odds_clv,
-                    'avg_price': avg_price,
-                    'closing_price': closing_price
+                    'price_clv': price_clv, 'odds_clv': odds_clv,
+                    'avg_price': avg_price, 'closing_price': closing_price
                 }
                 
             except Exception as e:
+                print(f"  -> ERRO CRÍTICO no loop: {e}")
                 clv_reasons[composite_key] = f'erro_processamento: {str(e)[:50]}'
                                 
+        print("\n--- Loop finalizado. Mapeando resultados ---")
+        
         price_clv_map = {key: val['price_clv'] for key, val in clv_results.items()}
         odds_clv_map = {key: val['odds_clv'] for key, val in clv_results.items()}
 
-        # Mapear usando a chave composta (conditionId + asset)
-        df['price_clv'] = df['_composite_key'].map(price_clv_map)
-        df['odds_clv'] = df['_composite_key'].map(odds_clv_map)
+        clv_df['price_clv'] = clv_df['_composite_key'].map(price_clv_map)
+        clv_df['odds_clv'] = clv_df['_composite_key'].map(odds_clv_map)
                 
-        # Remover colunas auxiliares
-        df = df.drop(
+        clv_df = clv_df.drop(
             columns=['start_time_unix', '_composite_key'], errors='ignore'
             )
         
-        # A partir daqui, temos um df 100% funcional com CLV do user.
-       
-        return df
+        # Imprimir um resumo dos problemas
+        if clv_reasons:
+            print("\nRelatório de CLV (itens não calculados):")
+            reason_counts = pd.Series(clv_reasons).value_counts()
+            print(reason_counts)
+        
+        print("Estatísticas do CLV:")
+        print("\n" + "-" * 40)
+        print("-" * 40)
+        
+        # 1. Isolar os valores de CLV que foram calculados com sucesso (não-nulos)
+        valid_clv = clv_df['price_clv'].dropna()
+        total_calculated = len(valid_clv)
+        
+        # 2. Verificar se temos dados para calcular
+        if total_calculated == 0:
+            print("  Nenhum valor de CLV foi calculado com sucesso.")
+            print("  Estatísticas indisponíveis.")
+        
+        else:
+            # 3. Calcular as métricas
+            mean_clv = valid_clv.mean()
+            median_clv = valid_clv.median()
+            
+            # Calcular percentuais
+            pos_percent = (valid_clv > 0).sum() / total_calculated * 100
+            neg_percent = (valid_clv < 0).sum() / total_calculated * 100
+            zero_percent = (valid_clv == 0).sum() / total_calculated * 100
+            
+            # 4. Imprimir a "tabelinha" formatada
+            print(f"  Total de Mercados Calculados: {total_calculated}")
+            print("-" * 40)
+            print(f"  CLV Médio:    {mean_clv: .4f}")
+            print(f"  CLV Mediano:  {median_clv: .4f}")
+            print("-" * 40)
+            print(f"  % CLV Positivo (> 0): {pos_percent: .2f}%")
+            print(f"  % CLV Negativo (< 0): {neg_percent: .2f}%")
+            print(f"  % CLV Zero   (== 0): {zero_percent: .2f}%")
+        
+        print("-" * 40)
+        print("--- FINALIZANDO calculate_clv (com sucesso) ---")
+        
+        return clv_df
