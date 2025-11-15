@@ -1,12 +1,15 @@
 import numpy as np
 import pandas as pd
 from helpers import *
-from non_ai_dashboard import ui
+from dashboard.ui import formatting
 from data.analysis import DataAnalyst
 
 
 
 def filter_and_format(df: pd.DataFrame) -> pd.DataFrame:
+    # TODO: ROI
+    # TODO: Tipar numericamente para filtrar corretamente
+    
     # 1. Filtrar apenas as colunas usadas
     new_df = df[[
         'endDate', 'title', 'outcome',
@@ -34,23 +37,38 @@ def filter_and_format(df: pd.DataFrame) -> pd.DataFrame:
     df_fmt["End Date"] = pd.to_datetime(new_df["End Date"]) \
         .dt.strftime("%d/%m/%Y %H:%M")
 
-    # Texto
     df_fmt["Event"] = new_df["Event"]
     df_fmt["Bet"] = new_df["Bet"]
     df_fmt["Slug"] = new_df["Slug"]
 
     # Números formatados
-    df_fmt["Total Bought"] = new_df["Total Bought"].apply(lambda x: f"{x:,}")
+    df_fmt["Total Bought"] = new_df["Total Bought"].apply(lambda x: f"{x:.2f}")
     df_fmt["Average Price"] = new_df["Average Price"].apply(lambda x: f"{x:.2f}")
     df_fmt["Current Price"] = new_df["Current Price"].apply(lambda x: f"{x:.2f}")
-    df_fmt["Realized Profit"] = new_df["Realized Profit"].apply(lambda x: f"$ {x:,.2f}")
 
-    # Tags (string)
-    df_fmt["Tags"] = new_df["Tags"].apply(ui.format_tags)
+    # Aqui está o valor REAL para permitir coloração
+    df_fmt["Realized Profit"] = new_df["Realized Profit"]
 
+    # Tags
+    df_fmt["Tags"] = new_df["Tags"].apply(formatting.format_tags)
 
-    # 4. RETORNAR SOMENTE O DF FORMATADO
-    return df_fmt
+    # 4. APLICAR FORMATAÇÃO E CORES
+    styler = (
+        df_fmt.style
+        .format({
+            "Total Bought": lambda x: f"{float(x):.2f}",
+            "Average Price": lambda x: f"{float(x):.2f}",
+            "Current Price": lambda x: f"{float(x):.2f}",
+            "Realized Profit": formatting.float_to_dol,
+        })
+        .map(
+            formatting.color_positive_negative,
+            subset=["Realized Profit"]
+        )
+    )
+
+    return styler
+
 
 def cum_pnl(
     df: pd.DataFrame,
@@ -64,7 +82,7 @@ def cum_pnl(
     """
     df = df.copy()
     
-    df[date_column] = pd.to_datetime(df[date_column])
+    df[date_column] = pd.to_datetime(df[date_column], errors='coerce')
     df = df.sort_values(by=date_column)
     
    
@@ -118,17 +136,18 @@ def create_daily_summary(
     styler = (
         out.style
             .format({
-                "Profit": ui.float_to_dol,
-                "ROI": ui.float_to_pct,
-                "Units": ui.float_to_dol,
+                "Profit": formatting.float_to_dol,
+                "ROI": formatting.float_to_pct,
+                "Units": formatting.float_to_units,
             })
-            .map(ui.color_positive_negative, subset=["Profit", "ROI", "Units"])
+            .map(formatting.color_positive_negative, subset=["Profit", "ROI", "Units"])
     )
 
     return styler
 
 def create_tag_df(
     df: pd.DataFrame,
+    return_tags: bool = False,
     ) -> pd.DataFrame:
     # Recebe o dataframe geral e retorna o dataframe de tags
     # 100% Formatado
@@ -147,15 +166,18 @@ def create_tag_df(
     styler = (
         tag_df.style
             .format({
-                'Profit': ui.float_to_dol,
-                'Staked': ui.float_to_dol,
-                'ROI': ui.float_to_pct,
-                'Units': ui.float_to_units,
+                'Profit': formatting.float_to_dol,
+                'Staked': formatting.float_to_dol,
+                'ROI': formatting.float_to_pct,
+                'Units': formatting.float_to_units,
             })
             .map(
-                ui.color_positive_negative,
-                subset=['Profit', 'ROI', 'Units'] # Colunas para colorir
+                formatting.color_positive_negative,
+                subset=['Profit', 'ROI', 'Units'] 
             )
     )
+    
+    if return_tags:
+        return styler, tag_df['Tag'].unique()
     
     return styler
