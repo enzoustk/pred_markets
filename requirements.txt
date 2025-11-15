@@ -2,3 +2,4 @@ pandas>=2.0.0
 requests>=2.31.0
 plotly>=5.0.0
 
+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
