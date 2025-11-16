@@ -161,7 +161,7 @@ def closed_positions(df: pd.DataFrame) -> None:
     df_slice = df.iloc[start_index:end_index]
     
     # Formatar APENAS a fatia (para performance)
-    formated_df_slice = dh.filter_and_format(df=df_slice) 
+    formated_df_slice = dh.filter_and_format_closed(df=df_slice) 
     
     # Exibir o DataFrame fatiado
     st.dataframe(
@@ -182,7 +182,7 @@ def closed_positions(df: pd.DataFrame) -> None:
     
     with cols[0]:
         st.button(
-            "⬅️ Previous",
+            "Previous",
             on_click=go_to_prev_page,
             disabled=st.session_state.cp_current_page <= 1,
             key='cp_prev', # Chave única
@@ -190,7 +190,7 @@ def closed_positions(df: pd.DataFrame) -> None:
         )
     with cols[1]:
         st.button(
-            "Next ➡️",
+            "Next",
             on_click=go_to_next_page,
             disabled=st.session_state.cp_current_page >= total_pages,
             key='cp_next', # Chave única
@@ -201,12 +201,13 @@ def closed_positions(df: pd.DataFrame) -> None:
     
     with cols[3]:
         st.download_button(
-            label="📥 Download all as CSV",
+            label="Download all as CSV",
             data=csv_data, # Os dados em bytes do CSV COMPLETO
             file_name=f'closed_positions_{st.session_state.get("selected_wallet", "all")}.csv',
             mime='text/csv',
             use_container_width=True # Botão preenche a coluna
         )
+
 
 def tag_df(df: pd.DataFrame) -> None:
     st.subheader('PnL by Market')
@@ -314,7 +315,7 @@ def get_filtered_df(
 ) -> dict:
 
     # Normaliza datas
-    df["endDate"] = pd.to_datetime(df["endDate"], utc=True).dt.tz_localize(None)
+    df["endDate"] = pd.to_datetime(df['endDate'], format='ISO8601', utc=True).dt.tz_localize(None)
 
     df["endDate"] = pd.to_datetime(df["endDate"], utc=False, errors="coerce")
 
@@ -335,18 +336,19 @@ def get_filtered_df(
     # ---------------------------------------------------------------------
     if tags:
         raw_df = exploded_df[exploded_df["tag"].isin(tags)]
-        main_df = dh.filter_and_format(raw_df)
-        tag_trades_df = dh.filter_and_format(raw_df)
+        main_df = dh.filter_and_format_closed(raw_df)
+        tag_trades_df = dh.filter_and_format_closed(raw_df)
     else:
         raw_df = df
-        main_df = dh.filter_and_format(df)
-        tag_trades_df = dh.filter_and_format(exploded_df)
+        main_df = dh.filter_and_format_closed(df)
+        tag_trades_df = dh.filter_and_format_closed(exploded_df)
 
     return {
         "raw": raw_df,
         "main": main_df,
         "exploded": tag_trades_df
     }
+
 
 def copy_trade_simulator(df: pd.DataFrame) -> None:
     cols = st.columns([1,2])
@@ -355,6 +357,7 @@ def copy_trade_simulator(df: pd.DataFrame) -> None:
     with cols[1]:
         st.subheader('Simulation Details')
         st.button('Simulate Performance')
+
 
 def copy_trade_sim_params():
     """
@@ -439,3 +442,120 @@ def copy_trade_sim_params():
             "trigger": trigger_value,
             "positioning": selected_positioning
         }
+
+def open_positions(df: pd.DataFrame) -> None:
+    
+    # --- 1. PREPARAR O DF PRINCIPAL ---
+    
+    st.subheader('Open Positions:')
+    
+    # Garante que estamos trabalhando com uma cópia
+    df = df.copy()
+    
+    # Ordena o DataFrame principal por data de vencimento
+    df = df.sort_values(by='endDate', ascending=False)
+    
+    
+    # --- 2. CONFIGURAR PAGINAÇÃO ---
+    
+    PAGE_SIZE = 20
+    
+    if 'op_current_page' not in st.session_state:
+        st.session_state.op_current_page = 1
+        
+    total_rows = len(df)
+    total_pages = (total_rows // PAGE_SIZE) + (1 if total_rows % PAGE_SIZE > 0 else 0)
+    
+    if st.session_state.op_current_page > total_pages:
+        st.session_state.op_current_page = 1
+        
+    def op_go_to_prev_page():
+        st.session_state.op_current_page = max(1, st.session_state.op_current_page - 1)
+        
+    def op_go_to_next_page():
+        st.session_state.op_current_page = min(total_pages, st.session_state.op_current_page + 1)
+
+    st.write(f"Page: **{st.session_state.op_current_page}** of **{total_pages}** (Total Positions: {total_rows})")
+    
+    
+    # --- 3. PREPARAR O CSV PARA DOWNLOAD (DF COMPLETO) ---
+    
+    csv_columns = [
+        'endDate', 'title', 'outcome',
+        'totalBought', 'avgPrice', 'curPrice', 'currentValue',
+        'cashPnl', 'slug', 'tags'
+    ]
+    
+    csv_columns_exist = [col for col in csv_columns if col in df.columns]
+    csv_df = df[csv_columns_exist].copy()
+    
+    csv_df = csv_df.rename(columns={
+        'endDate': 'End Date',
+        'avgPrice': 'Average Price',
+        'totalBought': 'Total Bought',
+        'cashPnl': 'Unrealized PnL',
+        'currentValue': 'Current Value',
+        'curPrice': 'Current Price',
+        'title': 'Event',
+        'outcome': 'Bet',
+        'slug': 'Slug',
+        'tags': 'Tags'
+    })
+    
+    csv_data = csv_df.to_csv(index=False).encode('utf-8')
+
+    
+    # --- 4. EXIBIR A PÁGINA ATUAL ---
+    
+    start_index = (st.session_state.op_current_page - 1) * PAGE_SIZE
+    end_index = start_index + PAGE_SIZE
+    df_slice = df.iloc[start_index:end_index]
+    
+    # Agora chamamos a função de formatação que retorna um Styler
+    formated_df_slice = dh.filter_and_format_active(df=df_slice) 
+    
+    # Exibir o DataFrame fatiado
+    st.dataframe(
+        data=formated_df_slice, # Passa o objeto Styler
+        hide_index=True,
+        
+        # Para esconder colunas de um Styler, você precisa ler
+        # as colunas do '.data' (o DataFrame dentro do Styler)
+        column_order=[
+            col for col in formated_df_slice.data.columns
+            if col not in ["Slug", "Tags"] # Esconde as colunas
+        ],
+        
+        width='stretch' 
+    )
+    
+    
+    # --- 5. EXIBIR BOTÕES DE NAVEGAÇÃO E DOWNLOAD ---
+    
+    cols = st.columns([1, 1, 3, 2]) 
+    
+    with cols[0]:
+        st.button(
+            "Previous",
+            on_click=op_go_to_prev_page,
+            disabled=st.session_state.op_current_page <= 1,
+            key='op_prev', 
+            use_container_width=True
+        )
+    with cols[1]:
+        st.button(
+            "Next",
+            on_click=op_go_to_next_page,
+            disabled=st.session_state.op_current_page >= total_pages,
+            key='op_next', 
+            use_container_width=True # <-- O 'S' foi removido daqui
+        )
+    
+    with cols[3]:
+        st.download_button(
+            label="Download all as CSV",
+            data=csv_data,
+            file_name=f'open_positions_{st.session_state.get("selected_wallet", "all")}.csv',
+            mime='text/csv',
+            use_container_width=True
+        )

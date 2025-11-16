@@ -2,7 +2,7 @@ import time
 import pandas as pd
 import streamlit as st
 from api.fetch import fetch_total_trades
-from api.fetch_pnl_subgraph import fetch_pnl_data
+from api.new_fetch_subgraph import fetch_pnl_data
 
 
 def select_user():
@@ -28,9 +28,15 @@ def select_user():
             
 def get_trades(user_address: str) -> pd.DataFrame:
     with st.spinner("Fetching trades..."):
-        return fetch_pnl_data(
-            user_address=user_address,
-            include_positions=True,
-            closed_only=True
-        )
-    
+        return fetch_pnl_data(user_address)
+
+
+def merge_dfs(
+    closed_df: pd.DataFrame,
+    active_df: pd.DataFrame
+    ):
+    # Recebe os dois dataframes e cria um só para sintetizar as estatísticas
+    # Deixá-lo cru por enquanto, fica de TODO para resolvê-lo.
+    merge_df = pd.concat([active_df, closed_df])
+    merge_df['total_profit'] = merge_df['realizedPnl'].fillna(0) + merge_df['cashPnl'].fillna(0)
+    return merge_df

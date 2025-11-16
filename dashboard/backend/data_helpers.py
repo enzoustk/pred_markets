@@ -6,7 +6,7 @@ from data.analysis import DataAnalyst
 
 
 
-def filter_and_format(df: pd.DataFrame) -> pd.DataFrame.style:
+def filter_and_format_closed(df: pd.DataFrame) -> pd.DataFrame.style:
     
     # 1. Filtrar (Seu código estava OK)
     new_df = df[[
@@ -78,6 +78,108 @@ def filter_and_format(df: pd.DataFrame) -> pd.DataFrame.style:
 
     return styler
 
+def filter_and_format_active(df: pd.DataFrame) -> pd.DataFrame.style:
+    """
+    Formata o DataFrame de posições ativas para exibição no Streamlit.
+    """
+    
+    # 1. PREPARAR O DF (Cálculos e Cópia)
+    df = df.copy()
+    
+    # Calcula o Total Profit (Conforme sua lógica)
+    df['total_profit'] = df['cashPnl'] + df['realizedPnl']
+
+    # 2. FILTRAR
+    # Seleciona apenas as colunas que vamos usar
+    raw_cols_to_keep = [
+        'endDate', 'title', 'outcome', 
+        'size', 'totalBought', 'avgPrice', 'curPrice', 
+        'cashPnl', 'realizedPnl', 'total_profit', 
+        'slug', 'tags'
+    ]
+    
+    # Garante que só peguemos colunas que existem
+    existing_cols = [col for col in raw_cols_to_keep if col in df.columns]
+    new_df = df[existing_cols].copy()
+
+    # 3. RENOMEAR (Conforme sua lógica)
+    new_df = new_df.rename(columns={
+        'endDate': 'End Date',
+        'avgPrice': 'Average Price',
+        'size': 'Current Shares',
+        'totalBought': 'Total Shares Bought',
+        'realizedPnl': 'Realized Profit',
+        'cashPnl': 'Unrealized Profit',
+        'curPrice': 'Current Price',
+        'title': 'Event',
+        'outcome': 'Bet',
+        'slug': 'Slug',
+        'tags': 'Tags',
+        'total_profit': 'Total Profit',
+    })
+
+    # 4. CRIAR VERSÕES FORMATADAS (df_fmt)
+    # Similar à 'closed', mas com as novas colunas
+    
+    df_fmt = pd.DataFrame()
+
+    # Data
+    df_fmt["End Date"] = pd.to_datetime(new_df["End Date"])
+
+    # Texto
+    df_fmt["Event"] = new_df["Event"]
+    df_fmt["Bet"] = new_df["Bet"]
+    df_fmt["Slug"] = new_df["Slug"]
+
+    # Números (Mantidos como float para cálculos)
+    df_fmt["Current Shares"] = new_df["Current Shares"]
+    df_fmt["Average Price"] = new_df["Average Price"]
+    
+    # Valor Apostado = Ações Atuais * Preço Médio
+    df_fmt["Staked ($)"] = new_df["Current Shares"] * new_df['Average Price']
+    
+    df_fmt["Current Price"] = new_df["Current Price"]
+
+    # P&L
+    df_fmt["Unrealized Profit"] = new_df["Unrealized Profit"]
+    df_fmt["Realized Profit"] = new_df["Realized Profit"]
+    df_fmt["Total Profit"] = new_df["Total Profit"]
+    
+    # ROI = Total Profit / Staked
+    df_fmt["ROI (%)"] = safe_divide(df_fmt["Total Profit"], df_fmt["Staked ($)"])
+
+    # Tags
+    df_fmt["Tags"] = new_df["Tags"].apply(formatting.format_tags)
+
+    
+    # 5. APLICAR FORMATAÇÃO E CORES
+    styler = (
+        df_fmt.style
+        .format({
+            # Formata o datetime para a exibição
+            "End Date": lambda d: d.strftime("%d/%m/%Y"), 
+            
+            # Formato de string simples para números
+            "Current Shares": "{:,.2f}",
+            "Average Price": "{:,.2f}",
+            "Current Price": "{:,.2f}",
+            "Staked ($)": formatting.float_to_dol,
+            
+            # P&L
+            "Unrealized Profit": formatting.float_to_dol,
+            "Realized Profit": formatting.float_to_dol,
+            "Total Profit": formatting.float_to_dol,
+            
+            "ROI (%)": formatting.float_to_pct
+        })
+        .map(
+            formatting.color_positive_negative,
+            # Aplica cor em todas as colunas de P&L
+            subset=["Unrealized Profit", "Realized Profit", "Total Profit", "ROI (%)"] 
+        )
+    )
+
+    return styler
 
 def cum_pnl(
     df: pd.DataFrame,
@@ -113,7 +215,10 @@ def create_daily_summary(
     
     df = df.copy()
 
-    df[date_column] = pd.to_datetime(df[date_column])
+    df[date_column] = pd.to_datetime(
+        df[date_column],
+        format='ISO8601',
+        utc=True)
     df = df.sort_values(by=date_column)
     
     df['staked'] = df['totalBought'] * df['avgPrice']
