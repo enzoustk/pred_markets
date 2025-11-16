@@ -2,7 +2,7 @@ import time
 import pandas as pd
 import streamlit as st
 from api.fetch import fetch_total_trades
-from api.new_fetch_subgraph import fetch_pnl_data
+from api.fetch_subgraph import fetch_pnl_data
 
 
 def select_user():
