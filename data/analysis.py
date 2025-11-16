@@ -321,10 +321,8 @@ class DataAnalyst:
                 
                 price_clv = closing_price - avg_price
 
-                odds_clv = safe_divide(
-                    safe_divide(1,avg_price),
-                    safe_divide(1,closing_price)
-                )
+                odds_clv = safe_divide(1,avg_price) - safe_divide(1,closing_price)
+            
                 
                 clv_results[composite_key] = {
                     'price_clv': price_clv, 'odds_clv': odds_clv,
@@ -376,15 +374,7 @@ class DataAnalyst:
             neg_percent = (valid_clv < 0).sum() / total_calculated * 100
             zero_percent = (valid_clv == 0).sum() / total_calculated * 100
             
-            # 4. Imprimir a "tabelinha" formatada
-            print(f"  Total de Mercados Calculados: {total_calculated}")
-            print("-" * 40)
-            print(f"  CLV Médio:    {mean_clv: .4f}")
-            print(f"  CLV Mediano:  {median_clv: .4f}")
-            print("-" * 40)
-            print(f"  % CLV Positivo (> 0): {pos_percent: .2f}%")
-            print(f"  % CLV Negativo (< 0): {neg_percent: .2f}%")
-            print(f"  % CLV Zero   (== 0): {zero_percent: .2f}%")
+            
         
         print("-" * 40)
         print("--- FINALIZANDO calculate_clv (com sucesso) ---")
