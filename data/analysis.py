@@ -1,6 +1,6 @@
 import pandas as pd
 from helpers import safe_divide, to_list
-from unreviewed_code.test_price_history import process_dataframe
+from api.price_history import process_dataframe
 # Import lazy de fetch_clv - só será importado quando calculate_clv for chamado
 
 class DataAnalyst:
