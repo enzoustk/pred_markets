@@ -37,9 +37,6 @@ def query_graphql(
         return response.json()
     
     except requests.exceptions.RequestException as e:
-        # print(f"Erro na requisição: {e}")
-        # if hasattr(e, 'response') and e.response is not None:
-        #     print(f"Resposta: {e.response.text}")
         return {"error": str(e)}
 
 
@@ -159,7 +156,7 @@ def get_all_user_positions(
             time.sleep(0.2)
     
     # --- MUDANÇA: Print final ---
-    print(f"✓ Posições {filter_type} do subgraph coletadas: {len(all_positions):,} registros.")
+    print(f"Posições {filter_type} do subgraph coletadas: {len(all_positions):,} registros.")
     return all_positions
 
 
@@ -214,11 +211,11 @@ def get_pnl_from_api_rest_by_markets(
         
         # --- MUDANÇA: Adiciona animação para o loop ---
         total_conditions = len(condition_ids)
-        initial_msg = f"📊 Buscando PNL por market (0 de {total_conditions})"
+        initial_msg = f"Buscando PNL por market (0 de {total_conditions})"
         
         with loading_animation(initial_msg) as anim_status:
             for i, condition_id in enumerate(condition_ids):
-                anim_status['message'] = f"📊 Buscando PNL por market ({i+1} de {total_conditions})"
+                anim_status['message'] = f"Buscando PNL por market ({i+1} de {total_conditions})"
                 
                 condition_data = []
                 offset = 0
@@ -265,7 +262,7 @@ def get_pnl_from_api_rest_by_markets(
                 if condition_data:
                     time.sleep(0.15)
         
-        print(f"✓ PNL por market (paginado) concluído: {len(all_data)} registros.")
+        print(f"PNL por market (paginado) concluído: {len(all_data)} registros.")
         return all_data
     
     # --- MUDANÇA: Animação para o Modo 2 (não paginado) ---
@@ -273,7 +270,7 @@ def get_pnl_from_api_rest_by_markets(
     if condition_ids:
         params["market"] = ",".join(condition_ids)
     
-    with loading_animation(f"📊 Buscando PNL para {len(condition_ids)} markets"):
+    with loading_animation(f"Buscando PNL para {len(condition_ids)} markets"):
         try:
             response = requests.get(url, params=params, timeout=30)
             response.raise_for_status()
@@ -284,7 +281,7 @@ def get_pnl_from_api_rest_by_markets(
                 time.sleep(2)
                 return get_pnl_from_api_rest_by_markets(user_address, condition_ids, limit, use_pagination)
             
-            print(f"✓ PNL por market (agrupado) concluído.")
+            print(f"PNL por market (agrupado) concluído.")
             return data if isinstance(data, list) else []
         except requests.exceptions.RequestException as e:
 
@@ -394,7 +391,6 @@ def fetch_all_pnl_from_api_rest(
     markets_per_request: int = 50,
     closed_only: bool = True,
     max_workers: int = 4,
-    output_csv: str = "pnl_api_rest_data.csv"
     ) -> pd.DataFrame:
     """
     Busca TODOS os dados de PNL (PROCESSO-PAI) com animação.
@@ -415,7 +411,7 @@ def fetch_all_pnl_from_api_rest(
     all_pnl_data = []
     
     # --- MUDANÇA: Adiciona animação multi-processo ---
-    initial_msg = f"📊 Buscando PNL da API ({endpoint_type}) (0 de {total_batches} lotes)"
+    initial_msg = f"Buscando PNL da API ({endpoint_type}) (0 de {total_batches} lotes)"
     
     with loading_animation(initial_msg) as anim_status:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -430,7 +426,7 @@ def fetch_all_pnl_from_api_rest(
                 completed_batches += 1
                 
                 # --- MUDANÇA: Atualiza a animação ---
-                anim_status['message'] = f"📊 Buscando PNL da API ({endpoint_type}) ({completed_batches} de {total_batches} lotes)"
+                anim_status['message'] = f"Buscando PNL da API ({endpoint_type}) ({completed_batches} de {total_batches} lotes)"
                 
                 try:
                     batch_data = future.result()
@@ -444,19 +440,15 @@ def fetch_all_pnl_from_api_rest(
     
     # --- PRINTS FINAIS (APÓS A ANIMAÇÃO) ---
     end_time = time.time()
-    print(f"✓ Tempo total de busca de PNL: {end_time - start_time:.2f} segundos")
-    print(f"✓ Total de {len(all_pnl_data)} registros de PNL encontrados")
+    print(f"Tempo total de busca de PNL: {end_time - start_time:.2f} segundos")
+    print(f"Total de {len(all_pnl_data)} registros de PNL encontrados")
     
     if all_pnl_data:
         df_pnl = pd.DataFrame(all_pnl_data)
-        
-        # Estatísticas (mantidas)
-        print(f"\n📊 Estatísticas dos dados de PNL:")
-        print(f" ... (estatísticas mantidas)")
-        
+                
         return df_pnl
     else:
-        print("⚠️  Nenhum dado de PNL encontrado")
+        print("Nenhum dado de PNL encontrado")
         return pd.DataFrame()
 
 
@@ -473,9 +465,9 @@ def explore_schema(endpoint: str = URLS['POSITIONS_SUBGRAPH']) -> dict[str]:
         result = query_graphql(endpoint, introspection_query)
     
     if "error" not in result:
-        print("✓ Schema explorado com sucesso.")
+        print("Schema explorado com sucesso.")
     else:
-        print("✗ Erro ao explorar schema.")
+        print("Erro ao explorar schema.")
         
     return result
 
@@ -489,7 +481,7 @@ def fetch_pnl_data(
     Função principal orquestradora (com várias animações).
     """
     filter_msg = " (apenas fechadas)" if closed_only else ""
-    print(f"🔍 Iniciando coleta de dados para: {user_address}{filter_msg}")
+    print(f"Iniciando coleta de dados para: {user_address}{filter_msg}")
     
     all_data = []
     
@@ -505,7 +497,7 @@ def fetch_pnl_data(
             ))
             
             if unique_condition_ids:
-                print(f"\n📊 Total de {len(unique_condition_ids)} conditionIds únicos encontrados.")
+                print(f"\nTotal de {len(unique_condition_ids)} conditionIds únicos encontrados.")
                 
                 # 2. Animação de 'fetch_all_pnl_from_api_rest' (roda aqui)
                 df_pnl_rest = fetch_all_pnl_from_api_rest(
@@ -523,17 +515,17 @@ def fetch_pnl_data(
                     missing_conditions = set(unique_condition_ids) - found_conditions
                     
                     if missing_conditions:
-                        print(f"\n⚠️  {len(missing_conditions)} conditionIds não retornaram dados. Buscando individualmente...")
+                        print(f"\n{len(missing_conditions)} conditionIds não retornaram dados. Buscando individualmente...")
                         missing_list = list(missing_conditions)
                         additional_data = []
                         
                         # --- MUDANÇA: Adiciona animação ---
                         total_missing = len(missing_list)
-                        initial_msg = f"📊 Buscando conditionIds faltantes (0 de {total_missing})"
+                        initial_msg = f"Buscando conditionIds faltantes (0 de {total_missing})"
                         
                         with loading_animation(initial_msg) as anim_status:
                             for i, condition_id in enumerate(missing_list):
-                                anim_status['message'] = f"📊 Buscando conditionIds faltantes ({i+1} de {total_missing})"
+                                anim_status['message'] = f"Buscando conditionIds faltantes ({i+1} de {total_missing})"
                                 
                                 condition_data = []
                                 offset = 0
@@ -570,10 +562,10 @@ def fetch_pnl_data(
                             df_additional = pd.DataFrame(additional_data)
                             df_pnl_rest = pd.concat([df_pnl_rest, df_additional], ignore_index=True)
                             df_pnl_rest.to_csv("pnl_api_rest_data.csv", index=False)
-                            print(f"✓ {len(additional_data)} registros adicionais encontrados.")
-                            print(f"💾 Arquivo 'pnl_api_rest_data.csv' atualizado.")
+                            print(f"{len(additional_data)} registros adicionais encontrados.")
+                            print(f"Arquivo 'pnl_api_rest_data.csv' atualizado.")
                         else:
-                            print(f"✓ Busca por conditionIds faltantes concluída (nenhum dado adicional encontrado).")
+                            print(f"Busca por conditionIds faltantes concluída (nenhum dado adicional encontrado).")
 
             # Consolidação (rápido, sem animação)
             total_balance = sum(int(pos.get("balance", 0)) for pos in positions if pos.get("balance") is not None)
@@ -587,28 +579,28 @@ def fetch_pnl_data(
             }
             all_data.insert(0, consolidated_data)
         else:
-            print("⚠️  Nenhuma posição individual encontrada")
+            print("Nenhuma posição individual encontrada")
     else:
         # 4. Animação para 'get_user_pnl' (que chama 'get_all_user_positions')
         user_data = get_user_pnl(user_address, closed_only=closed_only)
         if user_data:
-            print("✓ Dados consolidados encontrados!")
+            print("Dados consolidados encontrados!")
             all_data.append(user_data)
     
     if not all_data:
-        print("⚠️  Não foi possível encontrar dados para este usuário")
+        print("Não foi possível encontrar dados para este usuário")
         # 5. Animação para 'explore_schema'
         schema = explore_schema() # (já tem animação interna)
         if "error" not in schema and "data" in schema:
             query_fields = schema["data"].get("__schema", {}).get("queryType", {}).get("fields", [])
-            print("\n📋 Campos disponíveis no schema:")
+            print("\nCampos disponíveis no schema:")
             for field in query_fields[:10]:
                 print(f"    - {field.get('name')}")
         return pd.DataFrame()
     
     # Cria DataFrame e exibe resumos (prints finais mantidos)
     df = pd.DataFrame(all_data)
-    print(f"\n✅ Dados do subgraph encontrados! Total de registros: {len(df)}")
+    print(f"\nDados do subgraph encontrados! Total de registros: {len(df)}")
     
     # ... (Seção de Resumo e Estatísticas - prints mantidos) ...
     
@@ -616,10 +608,10 @@ def fetch_pnl_data(
     import os
     if os.path.exists("pnl_api_rest_data.csv"):
         df_pnl = pd.read_csv("pnl_api_rest_data.csv")
-        # ... (prints de resumo do PNL mantidos) ...
+        
         
         # Chama a última função animada
         return fetch_market_data(df_pnl)
     else:
-        print("\n⚠️  Arquivo 'pnl_api_rest_data.csv' não encontrado para buscar dados de mercado.")
+        print("\nArquivo 'pnl_api_rest_data.csv' não encontrado para buscar dados de mercado.")
         return df # Retorna o que tem
