@@ -449,8 +449,6 @@ def fetch_all_pnl_from_api_rest(
     
     if all_pnl_data:
         df_pnl = pd.DataFrame(all_pnl_data)
-        df_pnl.to_csv(output_csv, index=False)
-        print(f"💾 Dados de PNL salvos em '{output_csv}'")
         
         # Estatísticas (mantidas)
         print(f"\n📊 Estatísticas dos dados de PNL:")
