@@ -6,6 +6,6 @@ __pycache__
 test.ipynb
 test.py
 .venv
-unreviewed_code
+ignored
 profitable_traders.md
 dashboard_output
