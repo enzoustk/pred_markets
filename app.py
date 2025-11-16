@@ -1,9 +1,6 @@
-from dashboard.pages import main_page
-from dashboard.ui import elements
-import pandas as pd
 import streamlit as st
-from data.analysis import DataAnalyst
-from dashboard import data_helpers as dh
+from dashboard.ui import elements
+from dashboard.pages import user_analysis
 
 
 # Importar o dataframe que vamos usar para testes
@@ -12,10 +9,8 @@ from dashboard import data_helpers as dh
 st.set_page_config(layout="wide")
 
 def generate_dashboard():
+    elements.top_bar()
     
-    # ============================================
-    df = pd.read_csv('marketed.csv')
-    # ============================================
     tabs = st.tabs(
         ['Dashboard', 'Trading', 'User Analysis'])
     
@@ -28,7 +23,10 @@ def generate_dashboard():
         'Página para Trading Data'
     
     with tabs[2]: 
-        main_page.main_page(df=df)
+        user_analysis.user_analysis()
+    
+    st.divider()
+    elements.top_bar()
         
     
 
