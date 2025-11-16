@@ -6,20 +6,20 @@ from data.analysis import DataAnalyst
 
 
 
-def filter_and_format(df: pd.DataFrame) -> pd.DataFrame:
+def filter_and_format(df: pd.DataFrame) -> pd.DataFrame.style:
     
-    # 1. Filtrar apenas as colunas usadas
+    # 1. Filtrar (Seu código estava OK)
     new_df = df[[
         'endDate', 'title', 'outcome',
         'totalBought', 'avgPrice', 'curPrice',
         'realizedPnl', 'slug', 'tags'
     ]].copy()
 
-    # 2. Renomear
+    # 2. Renomear (Seu código estava OK)
     new_df = new_df.rename(columns={
         'endDate': 'End Date',
         'avgPrice': 'Average Price',
-        'totalBought': 'Total Bought',
+        'totalBought': 'Shares Bought',
         'realizedPnl': 'Realized Profit',
         'curPrice': 'Current Price',
         'title': 'Event',
@@ -28,40 +28,51 @@ def filter_and_format(df: pd.DataFrame) -> pd.DataFrame:
         'tags': 'Tags'
     })
 
+    # --- 👇 INÍCIO DA CORREÇÃO ---
+
     # 3. Criar versões formatadas
     df_fmt = pd.DataFrame()
 
-    # Data formatada
-    df_fmt["End Date"] = pd.to_datetime(new_df["End Date"]) \
-        .dt.strftime("%d/%m/%Y %H:%M")
+    # Data (MANTENHA COMO DATETIME, NÃO STRING)
+    df_fmt["End Date"] = pd.to_datetime(new_df["End Date"])
 
     df_fmt["Event"] = new_df["Event"]
     df_fmt["Bet"] = new_df["Bet"]
     df_fmt["Slug"] = new_df["Slug"]
 
-    # Números formatados
-    df_fmt["Total Bought"] = new_df["Total Bought"].apply(lambda x: f"{x:.2f}")
-    df_fmt["Average Price"] = new_df["Average Price"].apply(lambda x: f"{x:.2f}")
-    df_fmt["Current Price"] = new_df["Current Price"].apply(lambda x: f"{x:.2f}")
+    # Números (MANTENHA COMO NÚMEROS, NÃO STRINGS)
+    df_fmt["Shares Bought"] = new_df["Shares Bought"]
+    df_fmt["Average Price"] = new_df["Average Price"]
+    df_fmt["Staked ($)"] = new_df["Shares Bought"] * new_df['Average Price']
+    df_fmt["Current Price"] = new_df["Current Price"]
 
-    # Aqui está o valor REAL para permitir coloração
+    # Este já estava correto
     df_fmt["Realized Profit"] = new_df["Realized Profit"]
+    df_fmt["ROI (%)"] = safe_divide(df_fmt["Realized Profit"], df_fmt["Staked ($)"])
 
     # Tags
     df_fmt["Tags"] = new_df["Tags"].apply(formatting.format_tags)
 
     # 4. APLICAR FORMATAÇÃO E CORES
+    # Agora o .format() vai formatar os dados REAIS (números e datas)
     styler = (
         df_fmt.style
         .format({
-            "Total Bought": lambda x: f"{float(x):.2f}",
-            "Average Price": lambda x: f"{float(x):.2f}",
-            "Current Price": lambda x: f"{float(x):.2f}",
+            # Formata o datetime para a exibição
+            "End Date": lambda d: d.strftime("%d/%m/%Y"), 
+            
+            # Formato de string simples para números
+            "Shares Bought": "{:.2f}",
+            "Average Price": "{:.2f}",
+            "Current Price": "{:.2f}",
+            "Staked ($)": formatting.float_to_dol,
+            
             "Realized Profit": formatting.float_to_dol,
+            "ROI (%)": formatting.float_to_pct
         })
         .map(
             formatting.color_positive_negative,
-            subset=["Realized Profit"]
+            subset=["Realized Profit", "ROI (%)"] # Cuidado: aqui estava escrito "RealZized"
         )
     )
 
@@ -92,6 +103,7 @@ def cum_pnl(
     out_df['Cumulative Profit'] = out_df['Profit'].cumsum()
         
     return out_df
+
 
 def create_daily_summary(
     df: pd.DataFrame,
@@ -142,6 +154,7 @@ def create_daily_summary(
     )
 
     return styler
+
 
 def create_tag_df(
     df: pd.DataFrame,
