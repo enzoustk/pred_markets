@@ -10,3 +10,6 @@ dashboard.ui.elements.daily_profit:
 
 dashboard.ui.elements.closed_positions:
     Colorir coluna Profit
+
+main:
+    fazer o código lidar com somente parte do dataframe para não travar.
