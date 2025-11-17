@@ -1,24 +1,32 @@
-# Software completo para PolyMarket
+<div align="center">
 
-## Opção 1:
-Algum tipo de CopyTrade para partidas de Eventos Esportivos  
-- Escaneia todos os Holders do mercado  
-- Estuda os movimentos anteriores para ver a "sharpness" do player -> PL, ROI, EV+ vs Pinnacle CLV no-vigged?  
-- Atribui um índice para cada player ponderado pela odd em que ele entrou  
-- Se houver discrepância para algum dos lados, entrar nele?  
-- Usar traders coletados como sharps para CopyTrade?  
+# All-in-One PolyMarket Companion Software
 
----
+**Access the live application:**
+<br>
+<a href="https://strikerpolymarket.streamlit.app">
+  <img src="https://img.shields.io/badge/LAUNCH_APP-strikerpolymarket.streamlit.app-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Launch App">
+</a>
 
-## Opção 2:
-Algum tipo de Insider finder para mercados  
-- Escaneia todos os holders do mercado  
-- Analisa atividade suspeita:  
-  - Mercado com pouca liquidez;  
-  - Mercado "insider-prone";  
-  - Usuário com conta criada recentemente apostando somente nesse market  
+</div>
 
 ---
 
-## Opção 3:
-Algum tipo de algo trade para os mercados
+## Release: V1
+
+### Feature Set
+
+**In-depth User Analysis**
+> Comprehensive breakdown of wallet performance metrics.
+* **Positions:** Open and Closed position tracking
+* **Financials:** Trader PnL (Profit & Loss)
+* **Performance:** Trader ROI (Return on Investment)
+* **Activity:** Trader Markets Traded
+* **Alpha:** Trader CLV (*Beat the market index*)
+
+**Fully Functional CopyTrading Tool**
+> System Status: Development in progress
+<br>
+<img src="https://geps.dev/progress/65?dangerouslyUseSVGInImageTag=true&color=333333" alt="Loading Status">
+
+---
