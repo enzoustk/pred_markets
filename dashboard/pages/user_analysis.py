@@ -58,15 +58,27 @@ def user_analysis() -> None:
     )
     
     st.header('Select Filters to Apply:')
-    selected_tags = elements.tag_buttons(tags)
+    st.divider()
+    cols = st.columns(3)
+    # Tags
+    with cols[0]:
+        selected_tags = elements.tag_buttons(tags)
     
-    _, start_td, end_td = elements.time_filter_buttons(
-        df=st.session_state["merge_df"])
+    # Timeframe
+    with cols[1]:
+        _, start_td, end_td = elements.time_filter_buttons(
+            df=st.session_state["merge_df"])
     
+    # Stake
+    with cols[2]:
+        st.session_state.confirmed_stake = elements.stake()
+    
+    st.divider()
     
     closed_dfs = elements.get_filtered_df(
         df=st.session_state["closed_df"],
         tags=selected_tags,
+        stake=st.session_state.confirmed_stake,
         start_date=start_td,
         end_date=end_td
         )
@@ -74,6 +86,7 @@ def user_analysis() -> None:
     merged_dfs = elements.get_filtered_df(
         df=st.session_state["merge_df"],
         tags=selected_tags,
+        stake=st.session_state.confirmed_stake,
         start_date=start_td,
         end_date=end_td
     )
@@ -81,6 +94,7 @@ def user_analysis() -> None:
     active_dfs = elements.get_filtered_df(
         df=st.session_state["active_df"],
         tags=selected_tags,
+        stake=st.session_state.confirmed_stake,
         start_date=start_td,
         end_date=end_td
     )

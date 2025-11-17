@@ -310,6 +310,7 @@ def tag_buttons(tags: list) -> list:
 def get_filtered_df(
     df: pd.DataFrame,
     tags: list = [],
+    stake: float | None = None,
     start_date=None,
     end_date=None
 ) -> dict:
@@ -328,6 +329,13 @@ def get_filtered_df(
         df = df[(df["endDate"] >= start_date) &
                 (df["endDate"] <= end_date)]
 
+    if stake is not None:
+                # Cria a coluna temporária calculada
+        df["calculated_stake"] = df["totalBought"] * df["avgPrice"]
+
+        # Filtra onde o valor calculado é maior que a stake passada
+        df = df[df["calculated_stake"] > stake]
+    
     # exploded pós-filtro
     exploded_df = get_exploded_df(df=df)
 
@@ -442,6 +450,54 @@ def copy_trade_sim_params():
             "trigger": trigger_value,
             "positioning": selected_positioning
         }
+
+
+def stake():
+    # 1. Inicializa o valor "Confirmado" se ele ainda não existir
+    if "confirmed_stake" not in st.session_state:
+        st.session_state.confirmed_stake = 100.00  # Valor inicial padrão
+
+    # --- Funções de Callback (O que acontece ao clicar) ---
+    def aplicar_valor():
+        # Pega o valor que está escrito no input (acessado pela key) e salva no confirmado
+        st.session_state.confirmed_stake = st.session_state.widget_stake
+
+    def resetar_valor():
+        # Reseta tanto o valor visual do input quanto o valor confirmado para 0
+        st.session_state.widget_stake = 0.00
+        st.session_state.confirmed_stake = 0.00
+
+    # --- Interface Visual ---
+    
+    # O Input (vinculado ao session_state via 'key')
+    st.number_input(
+        label="Select Stake to Filter ($)",
+        min_value=0.00,      # Mudei para 0.00 para permitir o reset zerado
+        value=0.0,        # Valor inicial visual
+        step=100.00,
+        format="%.2f",
+        help="Select the min USD size of all trades.",
+        key="widget_stake"   # IMPORTANTE: Essa chave conecta o input ao session_state
+    )
+
+    # Colunas para os botões ficarem lado a lado
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Botão que atualiza o valor real
+        st.button("Apply", on_click=aplicar_valor, use_container_width=True)
+    
+    with col2:
+        # Botão que zera tudo
+        st.button("Reset", on_click=resetar_valor, use_container_width=True)
+
+    # Mostra para o usuário qual valor está VALENDO no momento (opcional, mas útil)
+    st.caption(f"Current Filter: **${st.session_state.confirmed_stake:.2f}**")
+
+    # --- Retorno ---
+    # Retorna o valor CONFIRMADO, e não o que está sendo digitado no momento
+    return st.session_state.confirmed_stake
+
 
 def open_positions(df: pd.DataFrame) -> None:
     
