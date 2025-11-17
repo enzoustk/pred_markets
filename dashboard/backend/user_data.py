@@ -10,7 +10,9 @@ def select_user():
 
     # campo de input do chat
     user_address = st.chat_input("Type user address")
-
+    st.divider()
+    st.markdown('Hint: 0x507e52ef684ca2dd91f90a9d26d149dd3288beae')
+    
     # se o usuário enviou algo
     if user_address:
         wallet_trades = fetch_total_trades(user_address)

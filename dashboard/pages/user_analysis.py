@@ -15,7 +15,6 @@ def user_analysis() -> None:
 
 
     if st.session_state.get("selected_wallet") is None:
-        st.info("Por favor, selecione uma carteira para começar.")
         st.stop()
 
     current_address = st.session_state.get("selected_wallet")
