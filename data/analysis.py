@@ -245,8 +245,6 @@ class DataAnalyst:
             df=df
         )
         
-        trades_df.to_csv('trades_df.csv')
-        
         if trades_df.empty:
             print("❌ ERRO: fetch_clv retornou um DataFrame VAZIO. Nenhum trade para processar.")
             print("--- FINALIZANDO calculate_clv (sem dados) ---")

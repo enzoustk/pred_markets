@@ -84,7 +84,6 @@ def clv_menu(
 
     # Filtrar o DF pela tag escolhida:
     exploded_df = get_exploded_df(df)
-    exploded_df.to_csv('exploded_df.csv', index=False)
     # Com a tag, vamos puxar os dados:
     
     clv_df = DataAnalyst.calculate_clv(
