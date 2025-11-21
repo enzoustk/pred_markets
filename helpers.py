@@ -5,9 +5,9 @@ import threading
 import pandas as pd
 from contextlib import contextmanager
 
-def safe_divide(num, den):
+def safe_divide(num, den, fallback=None):
     try: return num/den
-    except: return None
+    except: return fallback
 
 def to_list(x):
     if isinstance(x, list):
