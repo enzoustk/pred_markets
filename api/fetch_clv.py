@@ -15,7 +15,7 @@ def fetch_trades_for_single_market_page(
     taker_only: bool = False,
     limit: int = 100,
     offset: int = 0,
-    max_retries: int = 3
+    max_retries: int = 10
 ) -> Tuple[List[Dict[str, Any]], bool]:
     """
     Busca uma ÚNICA PÁGINA de trades para um ÚNICO mercado.
@@ -57,7 +57,7 @@ def fetch_trades_for_single_market_page(
                 result = data if isinstance(data, list) else data.get('trades', [])
                 return (result, True) # Sucesso! Sai da função.
             
-            elif response.status_code == 429:
+            elif (response.status_code == 429) or (response.status_code == 408):
                 # 2b. RATE LIMIT (429)
                 internal_retry_count += 1
                 if internal_retry_count > max_retries:
