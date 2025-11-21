@@ -314,6 +314,8 @@ def get_filtered_df(
     start_date=None,
     end_date=None
 ) -> dict:
+    
+    df = df.copy()
 
     # Normaliza datas
     df["endDate"] = pd.to_datetime(df['endDate'], format='ISO8601', utc=True).dt.tz_localize(None)
@@ -356,100 +358,6 @@ def get_filtered_df(
         "main": main_df,
         "exploded": tag_trades_df
     }
-
-
-def copy_trade_simulator(df: pd.DataFrame) -> None:
-    cols = st.columns([1,2])
-    with cols[0]:
-        params = copy_trade_sim_params()
-    with cols[1]:
-        st.subheader('Simulation Details')
-        st.button('Simulate Performance')
-
-
-def copy_trade_sim_params():
-    """
-    Exibe um formulário para o usuário configurar
-    os parâmetros de copytrade.
-    """
-    
-    st.subheader("Copytrade Strategy Settings")
-
-    # 1. Inicia o formulário
-    # Todos os st.widgets dentro do 'with' só serão enviados
-    # quando o st.form_submit_button for clicado.
-    
-    with st.form(key="copytrade_form"):
-        
-        # --- CAMPO 1: Selected Stake ---
-        selected_stake = st.number_input(
-            label="Selected Stake ($)",
-            min_value=1.00,
-            value=100.00,  # Valor inicial padrão
-            step=100.00,
-            format="%.2f",  # Garante 2 casas decimais
-            help="Select the USD size of all trades."
-        )
-        
-        st.divider()
-
-        # --- CAMPO 2: Strategy Options (com descrições) ---
-        strategy_options = ["Fully Flat", "Flat Above", "2x Flat"]
-        strategy_captions = [
-            "Assuming all bets would be made with the selected stake",
-            "Assuming all bets that were made with a lower amount than the selected stake would only go through with the original amount bet.",
-            "Assuming Only bets twice the selected stake would go through."
-        ]
-        
-        selected_strategy = st.radio(
-            label="Select Strategy",
-            options=strategy_options,
-            captions=strategy_captions, # <-- Usa 'captions' para as descrições
-            index=0 # 'Fully Flat' é a opção padrão
-        )
-
-        st.divider()
-
-        # --- CAMPO 3: Trigger Value ---
-        trigger_value = st.number_input(
-            label="Trigger Value ($)",
-            min_value=1.00,
-            value=5.00, # Valor inicial padrão
-            step=1.00,
-            format="%.2f",
-            help="Min amount in $ to Trigger the CopyTrade." # Descrição no tooltip
-        )
-        
-        st.divider()
-        
-        # --- CAMPO 4: Position Building (com descrições) ---
-        position_options = ["Follow Trader", "In batches"]
-        position_captions = [
-            "Take and make orders with the same amount as trader until fills the selected stake",
-            "Once above the threshold, Make x amount of orders, spliting the total stake."
-        ]
-        
-        selected_positioning = st.radio(
-            label="Position Building",
-            options=position_options,
-            captions=position_captions, # <-- Usa 'captions' para as descrições
-            index=0 # 'Follow Trader' é a opção padrão
-        )
-
-        # --- Botão de Submissão ---
-        submitted = st.form_submit_button("Save Settings")
-
-    # 2. Lógica para rodar DEPOIS que o formulário for enviado
-    if submitted:
-        st.success("Strategy settings saved!")
-        
-        # Exemplo: Salvar no session_state para usar depois
-        st.session_state.trade_settings = {
-            "stake": selected_stake,
-            "strategy": selected_strategy,
-            "trigger": trigger_value,
-            "positioning": selected_positioning
-        }
 
 
 def stake():
