@@ -1,4 +1,4 @@
-import numpy as np
+from datetime import datetime
 import pandas as pd
 from helpers import *
 from dashboard.ui import formatting
@@ -77,6 +77,7 @@ def filter_and_format_closed(df: pd.DataFrame) -> pd.DataFrame.style:
     )
 
     return styler
+
 
 def filter_and_format_active(df: pd.DataFrame) -> pd.DataFrame.style:
     """
@@ -181,6 +182,7 @@ def filter_and_format_active(df: pd.DataFrame) -> pd.DataFrame.style:
 
     return styler
 
+
 def cum_pnl(
     df: pd.DataFrame,
     pnl_column: str = 'realizedPnl',
@@ -261,12 +263,42 @@ def create_daily_summary(
     return styler
 
 
+def get_tag_list(
+    df:pd.DataFrame
+    ) -> list:
+    # Retorna a lista de Tags do User
+    return DataAnalyst.tag_analysis(df=df)['tag'].unique()
+
+
 def create_tag_df(
     df: pd.DataFrame,
-    return_tags: bool = False,
+    stake: float,
+    start_date,
+    end_date,
     ) -> pd.DataFrame:
     # Recebe o dataframe geral e retorna o dataframe de tags
     # 100% Formatado
+    
+    df = df.copy()
+    
+    # Filtrar o dataframe antes de fazer o Tag Analysis
+    df["endDate"] = pd.to_datetime(df['endDate'], format='ISO8601', utc=True).dt.tz_localize(None)
+    df["endDate"] = pd.to_datetime(df["endDate"], utc=False, errors="coerce")
+    
+    if isinstance(start_date, (datetime, pd.Timestamp)) and \
+       isinstance(end_date, (datetime, pd.Timestamp)):
+        
+        df = df[(df["endDate"] >= start_date) &
+                (df["endDate"] <= end_date)]
+
+    if stake is not None:
+        # Cria a coluna temporária calculada
+        df["calculated_stake"] = df["totalBought"] * df["avgPrice"]
+
+        # Filtra onde o valor calculado é maior que a stake passada
+        df = df[df["calculated_stake"] > stake]
+    
+    
     
     tag_df = DataAnalyst.tag_analysis(df=df)
     
@@ -292,8 +324,5 @@ def create_tag_df(
                 subset=['Profit', 'ROI', 'Units'] 
             )
     )
-    
-    if return_tags:
-        return styler, tag_df['Tag'].unique()
-    
+        
     return styler
