@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from dashboard.backend import data_helpers as dh
-from dashboard.backend import user_data
+from dashboard.backend import user_data, copy_trade_simulator
 from dashboard.ui import elements, formatting
 from dashboard.backend import clv
 
@@ -50,15 +50,13 @@ def user_analysis() -> None:
     st.divider()
     
     
-    # Dados de Tags
-    tag_df, tags = dh.create_tag_df(
-        df=st.session_state["merge_df"],
-        return_tags=True
-    )
+    # Tags do User:
+    tags = dh.get_tag_list(df=st.session_state["merge_df"])
     
     st.header('Select Filters to Apply:')
     st.divider()
     cols = st.columns(3)
+    
     # Tags
     with cols[0]:
         selected_tags = elements.tag_buttons(tags)
@@ -96,7 +94,7 @@ def user_analysis() -> None:
         stake=st.session_state.confirmed_stake,
         start_date=start_td,
         end_date=end_td
-    )
+    )    
     
     # Main Stats
 
@@ -127,6 +125,13 @@ def user_analysis() -> None:
     with tabs[0]:
         cols = st.columns([3,1])
         with cols[0]:
+            # Criar o Tag DF
+            tag_df = dh.create_tag_df(
+                df=st.session_state['merge_df'],
+                start_date=start_td,
+                end_date=end_td,
+                stake=st.session_state.confirmed_stake
+            )
             elements.tag_df(df=tag_df)
     
         with cols[1]:
@@ -143,4 +148,7 @@ def user_analysis() -> None:
     
     # CopyTrade Simulator
     with tabs[3]:
-        elements.copy_trade_simulator(df=closed_dfs['raw'])
+        copy_trade_simulator.run(
+            df=st.session_state['closed_df'],
+            tags=tags
+        )
