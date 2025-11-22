@@ -25,8 +25,6 @@ def generate_dashboard():
     with tabs[2]: 
         user_analysis.user_analysis()
     
-    st.divider()
-    elements.top_bar()
         
     
 
