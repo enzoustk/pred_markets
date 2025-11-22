@@ -16,7 +16,9 @@ def top_bar():
         center_text('Powered by Striker', size=12)
 
 
-def user_stats(df: pd.DataFrame) -> None:
+def user_stats(
+    df: pd.DataFrame
+    ) -> None:
     profit, staked, roi = DataAnalyst.calculate_stats(df)
     stats = DataAnalyst.calculate_advanced_stats(df)
     
@@ -35,7 +37,9 @@ def user_stats(df: pd.DataFrame) -> None:
     cols2[3].metric(label="Max Drawdown", value='Loading...')
 
 
-def cum_profit(df: pd.DataFrame) -> None:
+def cum_profit(
+    df: pd.DataFrame
+    ) -> None:
     cum_profit = dh.cum_pnl(df=df, date_column='endDate')
     
     st.subheader('Cumulative Profit')
@@ -74,7 +78,9 @@ def cum_profit(df: pd.DataFrame) -> None:
     st.plotly_chart(fig, width='stretch')
 
     
-def daily_profit(df: pd.DataFrame) -> None:
+def daily_profit(
+    df: pd.DataFrame
+    ) -> None:
     daily_profit_data = dh.create_daily_summary(df)
     st.subheader('PnL by Date')
     st.dataframe(
@@ -84,132 +90,55 @@ def daily_profit(df: pd.DataFrame) -> None:
         )
 
 
-def closed_positions(df: pd.DataFrame) -> None:
-    
-    # --- 1. PREPARAR O DF PRINCIPAL ---
+def closed_positions(
+    df: pd.DataFrame
+    ) -> None:
     
     st.subheader('Closed Positions:')
     
-    # Garante que estamos trabalhando com uma cópia
+    # 1. Preparação dos Dados (Sorting)
     df = df.copy()
-    
-    # Ordena o DataFrame principal por data, do mais recente para o mais antigo
-    # Isso é feito ANTES da paginação
-    df = df.sort_values(by='endDate', ascending=False)
-    
-    
-    # --- 2. CONFIGURAR PAGINAÇÃO ---
-    
-    PAGE_SIZE = 20 # Quantos itens por página
-    
-    # Inicializa o número da página no session_state se não existir
-    if 'cp_current_page' not in st.session_state:
-        st.session_state.cp_current_page = 1
+    if 'endDate' in df.columns:
+        df = df.sort_values(by='endDate', ascending=False)
         
-    # Calcula o número total de páginas
-    total_rows = len(df)
-    total_pages = (total_rows // PAGE_SIZE) + (1 if total_rows % PAGE_SIZE > 0 else 0)
-    
-    # Garante que a página atual seja válida (importante ao aplicar filtros)
-    # Se o filtro diminuiu o total de páginas, reseta para a página 1
-    if st.session_state.cp_current_page > total_pages:
-        st.session_state.cp_current_page = 1
-        
-    # Funções para os botões (callbacks)
-    def go_to_prev_page():
-        st.session_state.cp_current_page = max(1, st.session_state.cp_current_page - 1)
-        
-    def go_to_next_page():
-        st.session_state.cp_current_page = min(total_pages, st.session_state.cp_current_page + 1)
-
-    # Exibe o status da página
-    st.write(f"Page: **{st.session_state.cp_current_page}** of **{total_pages}** (Total Trades: {total_rows})")
-    
-    
-    # --- 3. PREPARAR O CSV PARA DOWNLOAD (COM O DF COMPLETO) ---
-    
-    # Seleciona e renomeia as colunas para o CSV ficar igual à tabela
-    csv_df = df[[
-        'endDate', 'title', 'outcome',
-        'totalBought', 'avgPrice', 'curPrice',
-        'realizedPnl', 'slug', 'tags'
-    ]].copy()
-    
-    csv_df = csv_df.rename(columns={
+    # 2. Preparação do CSV (Opcional, se quiser nomes bonitos no Excel)
+    csv_export_df = df[[
+        'endDate', 'title', 'outcome', 'totalBought', 
+        'avgPrice', 'curPrice', 'realizedPnl', 'slug', 'tags'
+    ]].rename(columns={
         'endDate': 'End Date',
         'avgPrice': 'Average Price',
         'totalBought': 'Total Bought',
         'realizedPnl': 'Realized Profit',
         'curPrice': 'Current Price',
         'title': 'Event',
-        'outcome': 'Bet',
-        'slug': 'Slug',
-        'tags': 'Tags'
+        'outcome': 'Bet'
     })
-    
-    # Converte o DataFrame COMPLETO para um string CSV (em bytes)
-    csv_data = csv_df.to_csv(index=False).encode('utf-8')
 
-    
-    # --- 4. EXIBIR A PÁGINA ATUAL ---
-    
-    # Fatiar (Slice) o DataFrame ANTES de formatar
-    start_index = (st.session_state.cp_current_page - 1) * PAGE_SIZE
-    end_index = start_index + PAGE_SIZE
-    
-    # Pega a fatia de dados brutos
-    df_slice = df.iloc[start_index:end_index]
-    
-    # Formatar APENAS a fatia (para performance)
-    formated_df_slice = dh.filter_and_format_closed(df=df_slice) 
-    
-    # Exibir o DataFrame fatiado
-    st.dataframe(
-        data=formated_df_slice,
-        hide_index=True,
-        column_order=[
-            col for col in formated_df_slice.columns
-            if col not in ["Slug", "Tags"]
-        ],
-        width='stretch' # Usa o parâmetro novo (substitui use_container_width)
+
+    df_config = {
+        "hide_index": True,
+        'column_config': {
+            'Slug': None,
+            'Tags': None
+        }
+    }
+
+    # 4. Chama o Renderizador Paginado
+    dh.render_paginated_table(
+        df=df,
+        unique_key="closed_positions_table", # ID Único Importante
+        page_size=20,
+        format_func=dh.filter_and_format_closed, # Passa a função, NÃO chama ela ()
+        csv_df=csv_export_df,
+        csv_file_name=f'closed_positions_{st.session_state.get("selected_wallet", "all")}.csv',
+        **df_config # Passa hide_index, etc.
     )
-    
-    
-    # --- 5. EXIBIR BOTÕES DE NAVEGAÇÃO E DOWNLOAD ---
-    
-    # Layout dos botões: [Prev] [Next] [Espaço] [Download]
-    cols = st.columns([1, 1, 3, 2]) 
-    
-    with cols[0]:
-        st.button(
-            "Previous",
-            on_click=go_to_prev_page,
-            disabled=st.session_state.cp_current_page <= 1,
-            key='cp_prev', # Chave única
-            use_container_width=True # Botão preenche a coluna
-        )
-    with cols[1]:
-        st.button(
-            "Next",
-            on_click=go_to_next_page,
-            disabled=st.session_state.cp_current_page >= total_pages,
-            key='cp_next', # Chave única
-            use_container_width=True
-        )
-    
-    # cols[2] é um espaço vazio
-    
-    with cols[3]:
-        st.download_button(
-            label="Download all as CSV",
-            data=csv_data, # Os dados em bytes do CSV COMPLETO
-            file_name=f'closed_positions_{st.session_state.get("selected_wallet", "all")}.csv',
-            mime='text/csv',
-            use_container_width=True # Botão preenche a coluna
-        )
 
 
-def tag_df(df: pd.DataFrame) -> None:
+def tag_df(
+    df: pd.DataFrame
+    ) -> None:
     st.subheader('PnL by Market')
     st.dataframe(
         data=df,
@@ -221,7 +150,9 @@ def tag_df(df: pd.DataFrame) -> None:
     )
 
 
-def time_filter_buttons(df):
+def time_filter_buttons(
+    df: pd.DataFrame
+    ) -> tuple:
 
     # Available filter options
     options = [
@@ -297,7 +228,9 @@ def time_filter_buttons(df):
     return selected, start, end
 
  
-def tag_buttons(tags: list) -> list:
+def tag_buttons(
+    tags: list
+    ) -> list:
 
     return st.pills(
         'Select Tags',
@@ -313,7 +246,7 @@ def get_filtered_df(
     stake: float | None = None,
     start_date=None,
     end_date=None
-) -> dict:
+    ) -> dict:
     
     df = df.copy()
 
@@ -360,7 +293,8 @@ def get_filtered_df(
     }
 
 
-def stake():
+def stake(
+    ) -> float:
     # 1. Inicializa o valor "Confirmado" se ele ainda não existir
     if "confirmed_stake" not in st.session_state:
         st.session_state.confirmed_stake = 100.00  # Valor inicial padrão
@@ -393,11 +327,11 @@ def stake():
 
     with col1:
         # Botão que atualiza o valor real
-        st.button("Apply", on_click=aplicar_valor, use_container_width=True)
+        st.button("Apply", on_click=aplicar_valor, width='stretch')
     
     with col2:
         # Botão que zera tudo
-        st.button("Reset", on_click=resetar_valor, use_container_width=True)
+        st.button("Reset", on_click=resetar_valor, width='stretch')
 
     # Mostra para o usuário qual valor está VALENDO no momento (opcional, mas útil)
     st.caption(f"Current Filter: **${st.session_state.confirmed_stake:.2f}**")
@@ -406,54 +340,27 @@ def stake():
     # Retorna o valor CONFIRMADO, e não o que está sendo digitado no momento
     return st.session_state.confirmed_stake
 
-
 def open_positions(df: pd.DataFrame) -> None:
-    
-    # --- 1. PREPARAR O DF PRINCIPAL ---
     
     st.subheader('Open Positions:')
     
-    # Garante que estamos trabalhando com uma cópia
+    # --- 1. PREPARAR O DF PRINCIPAL ---
+    # Garante cópia e ordena por data de vencimento (decrescente)
     df = df.copy()
+    if 'endDate' in df.columns:
+        df = df.sort_values(by='endDate', ascending=False)
     
-    # Ordena o DataFrame principal por data de vencimento
-    df = df.sort_values(by='endDate', ascending=False)
-    
-    
-    # --- 2. CONFIGURAR PAGINAÇÃO ---
-    
-    PAGE_SIZE = 20
-    
-    if 'op_current_page' not in st.session_state:
-        st.session_state.op_current_page = 1
-        
-    total_rows = len(df)
-    total_pages = (total_rows // PAGE_SIZE) + (1 if total_rows % PAGE_SIZE > 0 else 0)
-    
-    if st.session_state.op_current_page > total_pages:
-        st.session_state.op_current_page = 1
-        
-    def op_go_to_prev_page():
-        st.session_state.op_current_page = max(1, st.session_state.op_current_page - 1)
-        
-    def op_go_to_next_page():
-        st.session_state.op_current_page = min(total_pages, st.session_state.op_current_page + 1)
-
-    st.write(f"Page: **{st.session_state.op_current_page}** of **{total_pages}** (Total Positions: {total_rows})")
-    
-    
-    # --- 3. PREPARAR O CSV PARA DOWNLOAD (DF COMPLETO) ---
-    
+    # --- 2. PREPARAR O CSV PARA DOWNLOAD ---
+    # Define as colunas que queremos no Excel/CSV final
     csv_columns = [
         'endDate', 'title', 'outcome',
         'totalBought', 'avgPrice', 'curPrice', 'currentValue',
         'cashPnl', 'slug', 'tags'
     ]
     
-    csv_columns_exist = [col for col in csv_columns if col in df.columns]
-    csv_df = df[csv_columns_exist].copy()
-    
-    csv_df = csv_df.rename(columns={
+    # Filtra colunas existentes e renomeia para ficar bonito no download
+    existing_cols = [col for col in csv_columns if col in df.columns]
+    csv_export_df = df[existing_cols].copy().rename(columns={
         'endDate': 'End Date',
         'avgPrice': 'Average Price',
         'totalBought': 'Total Bought',
@@ -465,61 +372,27 @@ def open_positions(df: pd.DataFrame) -> None:
         'slug': 'Slug',
         'tags': 'Tags'
     })
-    
-    csv_data = csv_df.to_csv(index=False).encode('utf-8')
 
-    
-    # --- 4. EXIBIR A PÁGINA ATUAL ---
-    
-    start_index = (st.session_state.op_current_page - 1) * PAGE_SIZE
-    end_index = start_index + PAGE_SIZE
-    df_slice = df.iloc[start_index:end_index]
-    
-    # Agora chamamos a função de formatação que retorna um Styler
-    formated_df_slice = dh.filter_and_format_active(df=df_slice) 
-    
-    # Exibir o DataFrame fatiado
-    st.dataframe(
-        data=formated_df_slice, # Passa o objeto Styler
-        hide_index=True,
-        
-        # Para esconder colunas de um Styler, você precisa ler
-        # as colunas do '.data' (o DataFrame dentro do Styler)
-        column_order=[
-            col for col in formated_df_slice.data.columns
-            if col not in ["Slug", "Tags"] # Esconde as colunas
-        ],
-        
-        width='stretch' 
+    # --- 3. CONFIGURAÇÃO VISUAL DA TABELA ---
+    # Aqui definimos o que esconder ou formatar na visualização da tela.
+    # Como sua função `dh.filter_and_format_active` provavelmente retorna um Styler
+    # com as colunas já renomeadas para "Slug" e "Tags", usamos essas chaves.
+    df_config = {
+        "hide_index": True,
+        "column_config": {
+            "Slug": None,  # Oculta a coluna Slug
+            "Tags": None,  # Oculta a coluna Tags
+            # Você pode adicionar outras configurações aqui se o Styler não cobrir tudo
+        }
+    }
+
+    # --- 4. RENDERIZAÇÃO PAGINADA ---
+    dh.render_paginated_table(
+        df=df,
+        unique_key="open_positions_table", # ID único para não conflitar com Closed Positions
+        page_size=20,
+        format_func=dh.filter_and_format_active, # A função que aplica cores/estilos
+        csv_df=csv_export_df,
+        csv_file_name=f'open_positions_{st.session_state.get("selected_wallet", "all")}.csv',
+        **df_config # Repassa as configs de colunas
     )
-    
-    
-    # --- 5. EXIBIR BOTÕES DE NAVEGAÇÃO E DOWNLOAD ---
-    
-    cols = st.columns([1, 1, 3, 2]) 
-    
-    with cols[0]:
-        st.button(
-            "Previous",
-            on_click=op_go_to_prev_page,
-            disabled=st.session_state.op_current_page <= 1,
-            key='op_prev', 
-            use_container_width=True
-        )
-    with cols[1]:
-        st.button(
-            "Next",
-            on_click=op_go_to_next_page,
-            disabled=st.session_state.op_current_page >= total_pages,
-            key='op_next', 
-            use_container_width=True # <-- O 'S' foi removido daqui
-        )
-    
-    with cols[3]:
-        st.download_button(
-            label="Download all as CSV",
-            data=csv_data,
-            file_name=f'open_positions_{st.session_state.get("selected_wallet", "all")}.csv',
-            mime='text/csv',
-            use_container_width=True
-        )
