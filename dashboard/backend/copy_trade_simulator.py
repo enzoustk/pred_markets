@@ -4,6 +4,7 @@ from helpers import safe_divide
 from dashboard.ui import elements
 import plotly.graph_objects as go
 from api.fetch_clv import fetch_clv
+from dashboard.backend import data_helpers as dh
 
 def run(
     df: pd.DataFrame,
@@ -394,18 +395,25 @@ def run_flat_sim_calculation(
     return result_df
 
 
-def display_sim_results(
-    data: pd.DataFrame
-    ):
+def display_sim_results(data: pd.DataFrame):
+    """
+    Função Coordenadora:
+    1. Valida dados.
+    2. Exibe KPIs globais (Métricas).
+    3. Chama a renderização do Gráfico.
+    4. Chama a renderização das Tabelas.
+    """
     if data is None or data.empty:
         st.warning("Sim data is Empty.")
         return
 
+    # Trabalhamos com uma cópia para segurança
     sim_df = data.copy()
 
     st.subheader("Results")
 
-    # --- KPIs GLOBAIS ---
+    # --- 1. KPIs GLOBAIS ---
+    # Mantivemos o cálculo aqui pois são métricas rápidas de cabeçalho
     total_trader_pnl = sim_df['trader_pnl_total'].sum()
     total_copy_pnl = sim_df['copy_pnl_total'].sum()
     total_copy_volume = sim_df['copy_total_bought'].sum() if 'copy_total_bought' in sim_df.columns else 0.0
@@ -419,37 +427,83 @@ def display_sim_results(
 
     st.divider()
 
-    # --- GRÁFICO ---
+    # --- 2. CHAMADA DO GRÁFICO ---
+    display_equity_chart(sim_df)
+
+    # --- 3. CHAMADA DAS TABELAS ---
+    display_sim_tables(sim_df)
+
+
+def display_equity_chart(df: pd.DataFrame):
+    """
+    Responsável apenas por calcular as curvas acumuladas e renderizar o Plotly.
+    """
     st.write("### Equity Curve")
-    st.write("Hint: Click on the Graph Caption to Hide or Display the Line")
+    st.caption("Hint: Click on the Graph Caption to Hide or Display the Line")
+    
     try:
-        sim_df['acum_trader'] = sim_df['trader_pnl_total'].cumsum()
-        sim_df['acum_copy'] = sim_df['copy_pnl_total'].cumsum()
-        sim_df = sim_df.reset_index(drop=True)
-        sim_df['trade_number'] = sim_df.index + 1
+        # Prepara dados para o gráfico (Cálculo Local)
+        chart_df = df.copy() # Cópia leve para não afetar o DF original com colunas temp
+        chart_df['acum_trader'] = chart_df['trader_pnl_total'].cumsum()
+        chart_df['acum_copy'] = chart_df['copy_pnl_total'].cumsum()
+        chart_df = chart_df.reset_index(drop=True)
+        chart_df['trade_number'] = chart_df.index + 1
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=sim_df['trade_number'], y=sim_df['acum_trader'], mode='lines', name='Trader', line=dict(color='white', width=1), hovertemplate='$%{y:,.2f}'))
-        fig.add_trace(go.Scatter(x=sim_df['trade_number'], y=sim_df['acum_copy'], mode='lines', name='Copy Strategy', line=dict(color="#60E224", width=3), marker=dict(size=4), hovertemplate='$%{y:,.2f}'))
         
-        fig.update_layout(title="", xaxis_title="Total Trades", yaxis_title="Profit", template="plotly_dark", hovermode="x unified", height=500)
+        # Trader Line
+        fig.add_trace(go.Scatter(
+            x=chart_df['trade_number'], 
+            y=chart_df['acum_trader'], 
+            mode='lines', 
+            name='Trader', 
+            line=dict(color='white', width=1), 
+            hovertemplate='$%{y:,.2f}'
+        ))
+        
+        # Copy Strategy Line
+        fig.add_trace(go.Scatter(
+            x=chart_df['trade_number'], 
+            y=chart_df['acum_copy'], 
+            mode='lines', 
+            name='Copy Strategy', 
+            line=dict(color="#60E224", width=3), 
+            marker=dict(size=4), 
+            hovertemplate='$%{y:,.2f}'
+        ))
+        
+        fig.update_layout(
+            title="", 
+            xaxis_title="Total Trades", 
+            yaxis_title="Profit", 
+            template="plotly_dark", 
+            hovermode="x unified", 
+            height=500
+        )
+        
         st.plotly_chart(fig, width='stretch')
+        
     except Exception as e:
-        st.error(f"Erro no gráfico: {e}")
+        st.error(f"Error rendering chart: {e}")
 
-    # --- TABELAS ---
+def display_sim_tables(df: pd.DataFrame):
+    """
+    Exibe as tabelas de simulação (Copy vs Trader) usando paginação.
+    """
     st.write("### All Trades")
     
-    df_copy, df_trader = split_and_format_df(sim_df)
+    # 1. Preparação dos Dados
+    # Separa os dados em dois DFs distintos
+    df_copy, df_trader = split_and_format_df(df)
     
+    # 2. Configuração Visual (Column Config)
+    # Define como cada coluna deve aparecer (R$, %, datas, etc.)
     common_column_config = {
-        # --- NOVO: Configuração da Data ---
         "timestamp": st.column_config.DatetimeColumn(
             "First Trade",
             format="D MMM YYYY, HH:mm",
             width="medium"
         ),
-        
         "trade": st.column_config.TextColumn("Market", width="large"),
         "bet": st.column_config.TextColumn("Bet", width="small"),
         "won": st.column_config.CheckboxColumn("Win?", width="small"),
@@ -470,16 +524,40 @@ def display_sim_results(
         "roi": st.column_config.NumberColumn("ROI", format="%.2f%%"),
     }
     
-    # Lista de colunas na ordem desejada (Timestamp primeiro)
-    order = ['timestamp', 'trade', 'bet', 'won', 'roi', 'pnl_total', 'total_bought', 'avg_buy', 'avg_sell', 'pnl_realized', 'pnl_live']
+    # 3. Ordem das Colunas
+    order = [
+        'timestamp', 'trade', 'bet', 'won', 'roi', 'pnl_total', 
+        'total_bought', 'avg_buy', 'avg_sell', 'pnl_realized', 'pnl_live'
+    ]
 
+    # 4. Renderização das Abas com Paginação
     tab1, tab2 = st.tabs(["CopyTrade Details", "Trader Details"])
     
+    # --- ABA COPY ---
     with tab1:
-        st.dataframe(df_copy, width='stretch', height=500, hide_index=True, column_config=common_column_config, column_order=order)
+        dh.render_paginated_table(
+            df=df_copy,
+            unique_key="sim_copy_table",  # ID Único essencial para não conflitar com a outra aba
+            page_size=10,                 # 10 linhas por página fica bom em dashboards
+            csv_file_name="copy_strategy_results.csv",
+            # Argumentos do st.dataframe:
+            column_config=common_column_config,
+            column_order=order,
+            hide_index=True
+        )
         
+    # --- ABA TRADER ---
     with tab2:
-        st.dataframe(df_trader, width='stretch', height=500, hide_index=True, column_config=common_column_config, column_order=order)
+        dh.render_paginated_table(
+            df=df_trader,
+            unique_key="sim_trader_table", # ID Único diferente da aba 1
+            page_size=10,
+            csv_file_name="trader_original_results.csv",
+            # Argumentos do st.dataframe:
+            column_config=common_column_config,
+            column_order=order,
+            hide_index=True
+        )
 
 
 def split_and_format_df(
