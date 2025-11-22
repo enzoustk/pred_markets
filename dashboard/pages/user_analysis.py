@@ -111,6 +111,8 @@ def user_analysis() -> None:
         df=closed_dfs['raw'],
         user_address=current_address
     )
+    
+    st.divider()
        
     # Exibir os trades do User:
     tabs = st.tabs(
