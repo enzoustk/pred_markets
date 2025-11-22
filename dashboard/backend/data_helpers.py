@@ -1,6 +1,8 @@
-from datetime import datetime
+import math
 import pandas as pd
 from helpers import *
+import streamlit as st
+from datetime import datetime
 from dashboard.ui import formatting
 from data.analysis import DataAnalyst
 
@@ -326,3 +328,108 @@ def create_tag_df(
     )
         
     return styler
+
+def render_paginated_table(
+    df: pd.DataFrame,
+    unique_key: str,
+    page_size: int = 20,
+    format_func: callable = None,
+    csv_df: pd.DataFrame = None,
+    csv_file_name: str = "data.csv",
+    **st_dataframe_kwargs
+    ) -> None:
+    """
+    Renderiza um DataFrame paginado com controles de navegação e download.
+    
+    Args:
+        df: O DataFrame completo (fonte de dados).
+        unique_key: Uma string única para controlar o session_state desta tabela específica.
+        page_size: Itens por página.
+        format_func: (Opcional) Função para formatar APENAS a fatia visível (ex: adicionar R$, %).
+        csv_df: (Opcional) DataFrame específico para o CSV. Se None, usa o 'df' original.
+        csv_file_name: Nome do arquivo para download.
+        **st_dataframe_kwargs: Argumentos extras passados direto para st.dataframe (ex: column_config).
+    """
+    
+    # 1. Gerenciamento de Estado (Página Atual)
+    session_key = f"{unique_key}_current_page"
+    
+    if session_key not in st.session_state:
+        st.session_state[session_key] = 1
+        
+    total_rows = len(df)
+    total_pages = math.ceil(total_rows / page_size)
+    
+    # Resetar para pág 1 se filtros mudarem e a pág atual ficar fora do range
+    if st.session_state[session_key] > total_pages and total_pages > 0:
+        st.session_state[session_key] = 1
+    elif total_pages == 0:
+        st.session_state[session_key] = 1
+
+    # Callbacks de Navegação
+    def prev_page():
+        st.session_state[session_key] = max(1, st.session_state[session_key] - 1)
+        
+    def next_page():
+        st.session_state[session_key] = min(total_pages, st.session_state[session_key] + 1)
+
+    # 2. Informação de Status
+    st.caption(f"Page **{st.session_state[session_key]}** of **{max(1, total_pages)}** (Total: {total_rows} items)")
+
+    # 3. Fatiamento (Slicing)
+    if total_rows > 0:
+        start_idx = (st.session_state[session_key] - 1) * page_size
+        end_idx = start_idx + page_size
+        
+        # Pega a fatia bruta
+        df_slice = df.iloc[start_idx:end_idx].copy()
+        
+        # Aplica formatação visual (se fornecida)
+        if format_func:
+            display_data = format_func(df_slice)
+        else:
+            display_data = df_slice
+            
+        # 4. Renderiza Tabela
+        st.dataframe(
+            display_data,
+            width='stretch',
+            **st_dataframe_kwargs # Repassa configs como hide_index, column_order, etc.
+        )
+    else:
+        st.info("No data available.")
+
+    # 5. Controles (Botões)
+    cols = st.columns([1, 1, 3, 2])
+    
+    with cols[0]:
+        st.button(
+            "Previous", 
+            on_click=prev_page, 
+            disabled=(st.session_state[session_key] <= 1),
+            key=f"{unique_key}_btn_prev",
+            width='stretch'
+        )
+        
+    with cols[1]:
+        st.button(
+            "Next", 
+            on_click=next_page, 
+            disabled=(st.session_state[session_key] >= total_pages),
+            key=f"{unique_key}_btn_next",
+            width='stretch'
+        )
+        
+    with cols[3]:
+        # Prepara dados para CSV (Usa csv_df se fornecido, senão usa o df original)
+        data_to_download = csv_df if csv_df is not None else df
+        csv_bytes = data_to_download.to_csv(index=False).encode('utf-8')
+        
+        st.download_button(
+            label="Download CSV",
+            data=csv_bytes,
+            file_name=csv_file_name,
+            mime='text/csv',
+            key=f"{unique_key}_btn_download",
+            width='stretch'
+        )
